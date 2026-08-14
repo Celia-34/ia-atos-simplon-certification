@@ -1,25 +1,50 @@
-# M4-B2 — requirements
+# Certification — requirements
 # Python 3.11+
-#
+
+# API + serveur
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+
+# Validation
+pydantic>=2.10,<3
+pydantic-settings==2.7.0
+
+# ML : doit correspondre à la version utilisée pour entraîner model.joblib
+scikit-learn>=1.7,<2
+joblib>=1.5,<2
+httpx>=0.28,<1
+
+# Journalisation (préférée au logging stdlib)
+loguru>=0.7,<1
+
+# Visualisation
+matplotlib==3.9.2
+seaborn==0.13.2
+
+# Tests
+pytest>=8,<9
+pytest-asyncio==0.24.0
+
+
+# (Optionnel) régénérer le dataset
+# faker>=30,<50
+
 # ⚠️ PyTorch CPU pèse ~200 Mo, à installer une fois.
 # Pour installer la version CPU uniquement (plus rapide, suffisant pour le brief) :
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# torch==2.5.0
+# torchvision==0.20.0
 
-torch==2.5.0
-torchvision==0.20.0
+# HF Transformers 
+# protobuf et sentencepiece sont des dépendances natives de CamemBERT
+transformers==4.46.3
+sentencepiece==0.2.0
+protobuf>=3.20,<5
 
-# Pour option C — zero-shot CLIP
-transformers==4.46.0
-
-# Data / images
+# Data / Visualisation
 Pillow==11.0.0
-numpy==1.26.4
-pandas==2.2.2
-
-# Évaluation
-scikit-learn==1.5.1
-
-# Visualisation
+numpy>=2,<3
+pandas>=2.2,<4
 matplotlib==3.9.2
 
 # Notebook
