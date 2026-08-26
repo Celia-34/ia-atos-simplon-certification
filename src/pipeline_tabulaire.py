@@ -17,6 +17,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from transformers import data
 
+from src.metrics import evaluate_model
+
 
 NUMERIC_FEATURES = ("age", "anciennete_poste_ans")
 SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
@@ -113,3 +115,13 @@ def build_tabular_preprocessor(scenario: str) -> ColumnTransformer:
 		transformers.append(("categorical", categorical_pipeline, categorical_features))
 
 	return ColumnTransformer(transformers=transformers)
+
+
+def evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
+	"""Fit ``model`` on a tabular scenario's prepared features and return its §1.4 metrics.
+
+	No model is chosen by this module: ``model`` is an unfitted estimator supplied
+	by the caller (§5 picks the model family; §4 only benchmarks scenarios).
+	"""
+	model.fit(X_train_prepared, y_train)
+	return evaluate_model(model, X_test_prepared, y_test)

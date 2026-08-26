@@ -25,6 +25,8 @@ data/*.jpg
 models/*.pt
 models/*.pth
 models/*.joblib
+models/*.npz
+models/*.npy
 !models/.gitkeep
 
 # Cache HuggingFace
