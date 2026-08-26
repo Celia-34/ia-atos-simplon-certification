@@ -62,14 +62,47 @@ def evaluate_model(model, X_test, y_test) -> dict:
     return metrics
 
 
-def metrics_to_row(scenario: str, metrics: dict) -> dict:
-    """Flatten one scenario's metrics (minus the fitted model/matrix) into a benchmark row."""
-    return {"scenario": scenario, **{key: metrics[key] for key in METRIC_LABELS}}
+def metrics_to_row(scenario: str, metrics: dict, modele: str | None = None) -> dict:
+    """Flatten one (scénario, modèle) pair's metrics (minus the fitted model/matrix) into a benchmark row."""
+    row = {"scenario": scenario, **{key: metrics[key] for key in METRIC_LABELS}}
+    if modele is not None:
+        row["modele"] = modele
+    return row
+
+
+# Sens de la performance par métrique : True = plus grand est meilleur, False = plus petit est meilleur
+HIGHER_IS_BETTER = {
+    "accuracy": True,
+    "f1_macro": True,
+    "recall_classe_2": True,
+    "f1_classe_2": True,
+    "taux_erreur_grave_2_vers_0": False,
+    "taux_erreur_0_vers_2": False,
+}
+BEST_ICON = "🟢"
+WORST_ICON = "🔴"
 
 
 def write_benchmark_markdown(rows: list[dict], path: str | Path, model_label: str = "modèle fourni par l'appelant") -> pd.DataFrame:
-    """Consolidate per-scenario metrics rows into ``benchmark.md`` as a comparison table."""
-    benchmark_df = pd.DataFrame(rows).set_index("scenario").sort_index()
+    """Consolidate per-(scénario, modèle) metrics rows into ``benchmark.md`` as a comparison table.
+
+    Rows missing a ``modele`` key (legacy single-model calls) default to ``model_label``.
+    Best/worst values in each metric column (across all scenarios × modèles) are flagged
+    with 🟢/🔴 so the reader spots the extremes at a glance, without relying on colored
+    markdown (unsupported by plain `.md` rendering).
+    """
+    rows = [row if "modele" in row else {"modele": model_label, **row} for row in rows]
+    benchmark_df = pd.DataFrame(rows).set_index(["modele", "scenario"]).sort_index()
+
+    # Repère les valeurs extrêmes (best/worst) par colonne, sur les données brutes (avant arrondi/formatage).
+    best_masks, worst_masks = {}, {}
+    for column, higher_is_better in HIGHER_IS_BETTER.items():
+        values = benchmark_df[column]
+        best_value = values.max() if higher_is_better else values.min()
+        worst_value = values.min() if higher_is_better else values.max()
+        best_masks[column] = values == best_value
+        # Si toutes les valeurs sont égales, il n'y a pas de "pire" à distinguer du "meilleur".
+        worst_masks[column] = (values == worst_value) if worst_value != best_value else pd.Series(False, index=values.index)
 
     display_df = benchmark_df.copy()
     for column in ["taux_erreur_grave_2_vers_0", "taux_erreur_0_vers_2"]:
@@ -77,19 +110,29 @@ def write_benchmark_markdown(rows: list[dict], path: str | Path, model_label: st
     for column in ["accuracy", "f1_macro", "recall_classe_2", "f1_classe_2"]:
         display_df[column] = display_df[column].round(3)
 
-    headers = ["Scénario"] + [METRIC_LABELS[column] for column in display_df.columns]
+    for column in HIGHER_IS_BETTER:
+        display_df[column] = [
+            f"{BEST_ICON} {value}" if is_best else (f"{WORST_ICON} {value}" if is_worst else str(value))
+            for value, is_best, is_worst in zip(display_df[column], best_masks[column], worst_masks[column])
+        ]
+
+    headers = ["Modèle", "Scénario"] + [METRIC_LABELS[column] for column in display_df.columns]
     header_row = "| " + " | ".join(headers) + " |"
     separator_row = "|" + "|".join(["---"] * len(headers)) + "|"
     data_rows = [
-        "| " + " | ".join([scenario] + [str(value) for value in row]) + " |"
-        for scenario, row in zip(display_df.index, display_df.itertuples(index=False))
+        "| " + " | ".join([modele, scenario] + [str(value) for value in row]) + " |"
+        for (modele, scenario), row in zip(display_df.index, display_df.itertuples(index=False))
     ]
 
     lines = [
-        "# Benchmark des scénarios — métriques §1.4",
+        "# Benchmark des scénarios × modèles — métriques §1.4",
         "",
-        "Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§4.2). "
-        f"Modèle utilisé : {model_label} (métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même).",
+        "Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.2). "
+        "Chaque scénario est rejoué sur chacun des modèles candidats "
+        "(métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même).",
+        "",
+        f"Légende : {BEST_ICON} meilleure valeur de la colonne · {WORST_ICON} pire valeur de la colonne "
+        "(sur l'ensemble scénarios × modèles).",
         "",
         header_row,
         separator_row,

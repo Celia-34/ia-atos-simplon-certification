@@ -19,3 +19,5 @@ Ces sous-scénarios utilisent uniquement des données tabulaires. Ils permettent
 | **S4c - Sans diplôme** | `age`, `anciennete_poste_ans`, `departement` | Quel est l'apport du niveau de diplôme et son retrait limite-t-il le biais socio-économique ? |
 | **S4d - Sans département** | `age`, `niveau_diplome`, `anciennete_poste_ans` | Quel est l'apport du département et son retrait limite-t-il les écarts territoriaux ? |
 | **S4e - Sans proxies majeurs** | `anciennete_poste_ans` | Quelle performance reste-t-il sans âge, diplôme ni département ? Cette référence permet de quantifier le gain cumulé des trois proxies. |
+
+Pour chaque scénario principal et sous-scénario S4, les mêmes métriques seront calculées : F1-score macro, recall de la classe 2, F1-score de la classe 2, accuracy, matrice de confusion et taux d'erreur grave classe 2 → classe 0. Un audit par sous-groupe complétera l'évaluation : nationalité UE / hors UE, tranches d'âge, niveau de diplôme et départements disposant d'effectifs suffisants. Un proxy ne sera retenu que si son gain de performance est démontré sans dégrader les critères de sécurité et d'équité fixés en §1.4.

@@ -10,12 +10,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import cross_val_predict
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 from src.metrics import evaluate_model
+from src import metrics as metrics_module
+
 
 DEFAULT_MODEL = "cmarkea/distilcamembert-base-nli"  # modèle français, exécutable localement
 DEFAULT_HYPOTHESIS_TEMPLATE = "Ce commentaire concerne {}."
 FALLBACK_LABEL = "a_valider"
+DEFAULT_MAX_FEATURES = 300  # taille du vocabulaire TF-IDF pour le scénario S3
+DEFAULT_MIN_DF = 2  # ignore les termes présents dans moins de 2 documents
 
 
 def build_zero_shot_classifier(
@@ -83,7 +91,30 @@ def merge_familles_thematiques(
     return df
 
 
-def evaluate_text_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
+def _to_dense(X):
+    """Convert a sparse matrix to a dense array; pass dense input through unchanged."""
+    return X.toarray() if hasattr(X, "toarray") else X
+
+
+def build_text_pipeline(
+    model,
+    densify: bool = False,
+    max_features: int = DEFAULT_MAX_FEATURES,
+    min_df: int = DEFAULT_MIN_DF,
+) -> Pipeline:
+    """Assemble the leakage-safe Pipeline(tfidf[, densify], model) for scenario S3.
+
+    Centralizes the TF-IDF vectorizer settings so they stay consistent between
+    §4.2.2 (S3 preparation) and §5 (CV benchmark, hyperparameter search).
+    """
+    etapes = [("tfidf", TfidfVectorizer(max_features=max_features, min_df=min_df))]
+    if densify:
+        etapes.append(("densify", FunctionTransformer(_to_dense)))
+    etapes.append(("model", model))
+    return Pipeline(steps=etapes)
+
+
+def fit_and_evaluate_text_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
     """Fit ``model`` on scenario S3's TF-IDF features and return its §1.4 metrics.
 
     No model is chosen by this module: ``model`` is an unfitted estimator supplied
@@ -91,3 +122,13 @@ def evaluate_text_scenario(model, X_train_prepared, X_test_prepared, y_train, y_
     """
     model.fit(X_train_prepared, y_train)
     return evaluate_model(model, X_test_prepared, y_test)
+
+def evaluer_scenario_texte_cv(model, besoin_dense: bool) -> dict:
+    """Prédictions hors-échantillon (5-fold CV, train uniquement) pour le scénario texte S3.
+
+    Le Pipeline (TF-IDF refit à chaque fold) est assemblé par pipeline_texte.build_text_pipeline.
+    """
+    pipeline_s3 = build_text_pipeline(model, densify=besoin_dense)
+    y_pred_oof = cross_val_predict(pipeline_s3, X_train["synthese_entretien_prepare"], y_train, cv=cv, n_jobs=-1)
+    return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
+

@@ -13,11 +13,14 @@ from PIL.features import features
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import cross_val_predict
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 from transformers import data
 
+from src import metrics as metrics_module
 from src.metrics import evaluate_model
+
 
 
 NUMERIC_FEATURES = ("age", "anciennete_poste_ans")
@@ -59,12 +62,6 @@ def get_scenario_features(scenario: str) -> tuple[str, ...]:
 def prepare_tabular_features(data: pd.DataFrame, scenario: str) -> pd.DataFrame:
     """Select a scenario's features and derive ``departement`` when required."""
     features = get_scenario_features(scenario)
-    numeric_features = [feature for feature in features if feature in NUMERIC_FEATURES]
-    categorical_features = [feature for feature in features if feature not in NUMERIC_FEATURES]
-    excluded_features = [feature for feature in data.columns if feature not in features]
-    print(f"Features numériques : {numeric_features}")
-    print(f"Features catégorielles : {categorical_features}")
-    print(f"Features exclues : {excluded_features}")
     prepared_data = data.copy()
 
     if "departement" in features and "departement" not in prepared_data:
@@ -117,7 +114,26 @@ def build_tabular_preprocessor(scenario: str) -> ColumnTransformer:
 	return ColumnTransformer(transformers=transformers)
 
 
-def evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
+def _to_dense(X):
+	"""Convert a sparse matrix to a dense array; pass dense input through unchanged."""
+	return X.toarray() if hasattr(X, "toarray") else X
+
+
+def build_scenario_pipeline(scenario: str, model, densify: bool = False) -> Pipeline:
+	"""Assemble the leakage-safe Pipeline(preprocessing[, densify], model) for one scenario.
+
+	Centralizes what §5 callers (CV benchmark, hyperparameter search) need to build a
+	ready-to-fit pipeline without knowing how the ColumnTransformer is assembled or
+	whether ``model`` requires dense input (ex. HistGradientBoostingClassifier).
+	"""
+	etapes = [("preprocessing", build_tabular_preprocessor(scenario))]
+	if densify:
+		etapes.append(("densify", FunctionTransformer(_to_dense)))
+	etapes.append(("model", model))
+	return Pipeline(steps=etapes)
+
+
+def fit_and_evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
 	"""Fit ``model`` on a tabular scenario's prepared features and return its §1.4 metrics.
 
 	No model is chosen by this module: ``model`` is an unfitted estimator supplied
@@ -125,3 +141,15 @@ def evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, y_train,
 	"""
 	model.fit(X_train_prepared, y_train)
 	return evaluate_model(model, X_test_prepared, y_test)
+
+def evaluer_scenario_tabulaire_cv(nom_scenario: str, model, besoin_dense: bool) -> dict:
+    """Prédictions hors-échantillon (5-fold CV, train uniquement) pour un scénario tabulaire.
+
+    Le Pipeline (preprocessing refit à chaque fold, sans fuite) est assemblé par
+    pipeline_tabulaire.build_scenario_pipeline, pas construit ici.
+    """
+    features_train = prepare_tabular_features(X_train, nom_scenario)
+    pipeline_scenario = build_scenario_pipeline(nom_scenario, model, densify=besoin_dense)
+    y_pred_oof = cross_val_predict(pipeline_scenario, features_train, y_train, cv=cv, n_jobs=-1)
+    return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
+
