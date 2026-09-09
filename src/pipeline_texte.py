@@ -123,10 +123,12 @@ def fit_and_evaluate_text_scenario(model, X_train_prepared, X_test_prepared, y_t
     model.fit(X_train_prepared, y_train)
     return evaluate_model(model, X_test_prepared, y_test)
 
-def evaluer_scenario_texte_cv(model, besoin_dense: bool) -> dict:
+def evaluer_scenario_texte_cv(model, besoin_dense: bool, X_train, y_train, cv) -> dict:
     """Prédictions hors-échantillon (5-fold CV, train uniquement) pour le scénario texte S3.
 
     Le Pipeline (TF-IDF refit à chaque fold) est assemblé par pipeline_texte.build_text_pipeline.
+    X_train/y_train/cv sont passés explicitement par l'appelant (notebook), ce module n'entraîne
+    jamais rien lui-même et ne doit pas dépendre de variables globales du notebook.
     """
     pipeline_s3 = build_text_pipeline(model, densify=besoin_dense)
     y_pred_oof = cross_val_predict(pipeline_s3, X_train["synthese_entretien_prepare"], y_train, cv=cv, n_jobs=-1)

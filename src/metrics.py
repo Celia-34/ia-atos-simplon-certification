@@ -17,12 +17,12 @@ CLASSE_RETOUR_RAPIDE = 0
 CLASSE_A_RISQUE = 2
 
 METRIC_LABELS = {
-    "accuracy": "Accuracy",
-    "f1_macro": "F1 macro",
+    "accuracy": "Accuracy globale",
+    "f1_macro": "F1-score macro",
     "recall_classe_2": "Recall classe 2",
-    "f1_classe_2": "F1 classe 2",
-    "taux_erreur_grave_2_vers_0": "Taux erreur grave (2→0)",
-    "taux_erreur_0_vers_2": "Taux erreur (0→2)",
+    "f1_classe_2": "F1-score classe 2 (minoritaire)",
+    "taux_erreur_grave_2_vers_0": "Matr. confusion : Taux erreur grave (2→0)",
+    "taux_erreur_0_vers_2": "Matr. confusion : Taux erreur (0→2)",
 }
 
 
@@ -84,60 +84,72 @@ WORST_ICON = "🔴"
 
 
 def write_benchmark_markdown(rows: list[dict], path: str | Path, model_label: str = "modèle fourni par l'appelant") -> pd.DataFrame:
-    """Consolidate per-(scénario, modèle) metrics rows into ``benchmark.md`` as a comparison table.
+    """Consolidate per-(scénario, modèle) metrics rows into ``benchmark.md``, one table per scénario.
 
     Rows missing a ``modele`` key (legacy single-model calls) default to ``model_label``.
-    Best/worst values in each metric column (across all scenarios × modèles) are flagged
-    with 🟢/🔴 so the reader spots the extremes at a glance, without relying on colored
-    markdown (unsupported by plain `.md` rendering).
+    Best/worst values are flagged with 🟢/🔴 **par scénario** (comparaison entre modèles sur un
+    même jeu de features), pas sur l'ensemble scénarios × modèles, pour éviter qu'un scénario
+    globalement plus facile n'écrase les écarts entre modèles des autres scénarios.
     """
     rows = [row if "modele" in row else {"modele": model_label, **row} for row in rows]
-    benchmark_df = pd.DataFrame(rows).set_index(["modele", "scenario"]).sort_index()
-
-    # Repère les valeurs extrêmes (best/worst) par colonne, sur les données brutes (avant arrondi/formatage).
-    best_masks, worst_masks = {}, {}
-    for column, higher_is_better in HIGHER_IS_BETTER.items():
-        values = benchmark_df[column]
-        best_value = values.max() if higher_is_better else values.min()
-        worst_value = values.min() if higher_is_better else values.max()
-        best_masks[column] = values == best_value
-        # Si toutes les valeurs sont égales, il n'y a pas de "pire" à distinguer du "meilleur".
-        worst_masks[column] = (values == worst_value) if worst_value != best_value else pd.Series(False, index=values.index)
-
-    display_df = benchmark_df.copy()
-    for column in ["taux_erreur_grave_2_vers_0", "taux_erreur_0_vers_2"]:
-        display_df[column] = (display_df[column] * 100).round(1).map(lambda v: f"{v} %")
-    for column in ["accuracy", "f1_macro", "recall_classe_2", "f1_classe_2"]:
-        display_df[column] = display_df[column].round(3)
-
-    for column in HIGHER_IS_BETTER:
-        display_df[column] = [
-            f"{BEST_ICON} {value}" if is_best else (f"{WORST_ICON} {value}" if is_worst else str(value))
-            for value, is_best, is_worst in zip(display_df[column], best_masks[column], worst_masks[column])
-        ]
-
-    headers = ["Modèle", "Scénario"] + [METRIC_LABELS[column] for column in display_df.columns]
-    header_row = "| " + " | ".join(headers) + " |"
-    separator_row = "|" + "|".join(["---"] * len(headers)) + "|"
-    data_rows = [
-        "| " + " | ".join([modele, scenario] + [str(value) for value in row]) + " |"
-        for (modele, scenario), row in zip(display_df.index, display_df.itertuples(index=False))
-    ]
+    # Indexé (scenario, modele) pour que le DataFrame affiché/retourné regroupe par scénario
+    # d'abord — les modèles sont comparés à features constantes, ce qui est l'axe le plus utile.
+    benchmark_df = pd.DataFrame(rows).set_index(["scenario", "modele"]).sort_index()
 
     lines = [
         "# Benchmark des scénarios × modèles — métriques §1.4",
         "",
         "Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.2). "
         "Chaque scénario est rejoué sur chacun des modèles candidats "
-        "(métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même).",
+        "(métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même). "
+        "Un tableau par scénario, pour comparer les modèles entre eux à features constantes.",
         "",
         f"Légende : {BEST_ICON} meilleure valeur de la colonne · {WORST_ICON} pire valeur de la colonne "
-        "(sur l'ensemble scénarios × modèles).",
-        "",
-        header_row,
-        separator_row,
-        *data_rows,
-        "",
+        "(comparaison entre modèles, pour ce scénario uniquement).",
     ]
+
+    for scenario in benchmark_df.index.get_level_values("scenario").unique():
+        scenario_df = benchmark_df.xs(scenario, level="scenario")
+
+        # Repère les valeurs extrêmes (best/worst) par colonne, au sein de ce scénario uniquement.
+        best_masks, worst_masks = {}, {}
+        for column, higher_is_better in HIGHER_IS_BETTER.items():
+            values = scenario_df[column]
+            best_value = values.max() if higher_is_better else values.min()
+            worst_value = values.min() if higher_is_better else values.max()
+            best_masks[column] = values == best_value
+            # Si toutes les valeurs sont égales, il n'y a pas de "pire" à distinguer du "meilleur".
+            worst_masks[column] = (values == worst_value) if worst_value != best_value else pd.Series(False, index=values.index)
+
+        display_df = scenario_df.copy()
+        for column in ["taux_erreur_grave_2_vers_0", "taux_erreur_0_vers_2"]:
+            display_df[column] = (display_df[column] * 100).round(1).map(lambda v: f"{v} %")
+        for column in ["accuracy", "f1_macro", "recall_classe_2", "f1_classe_2"]:
+            display_df[column] = display_df[column].round(3)
+
+        for column in HIGHER_IS_BETTER:
+            display_df[column] = [
+                f"{BEST_ICON} {value}" if is_best else (f"{WORST_ICON} {value}" if is_worst else str(value))
+                for value, is_best, is_worst in zip(display_df[column], best_masks[column], worst_masks[column])
+            ]
+
+        headers = ["Modèle"] + [METRIC_LABELS[column] for column in display_df.columns]
+        header_row = "| " + " | ".join(headers) + " |"
+        separator_row = "|" + "|".join(["---"] * len(headers)) + "|"
+        data_rows = [
+            "| " + " | ".join([modele] + [str(value) for value in row]) + " |"
+            for modele, row in zip(display_df.index, display_df.itertuples(index=False))
+        ]
+
+        lines += [
+            "",
+            f"## Scénario `{scenario}`",
+            "",
+            header_row,
+            separator_row,
+            *data_rows,
+        ]
+
+    lines.append("")
     Path(path).write_text("\n".join(lines), encoding="utf-8")
     return benchmark_df

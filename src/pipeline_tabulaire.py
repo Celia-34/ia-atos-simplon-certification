@@ -34,12 +34,16 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 		"departement",
 	),
 	"s2": ("anciennete_poste_ans", "code_rome_vise", "est_allocataire"),
-	"s4a": ("age", "anciennete_poste_ans", "niveau_diplome", "departement"),
-	"s4b": ("anciennete_poste_ans", "niveau_diplome", "departement"),
-	"s4c": ("age", "anciennete_poste_ans", "departement"),
-	"s4d": ("age", "anciennete_poste_ans", "niveau_diplome"),
-	"s4e": ("anciennete_poste_ans",),
+	# Sous-scénarios S4 nommés d'après les features tabulaires conservées (§3.7/§4.4) :
+	# ablation d'un proxy à la fois pour attribuer précisément son apport.
+	"s4-age-dip-anc-dep": ("age", "anciennete_poste_ans", "niveau_diplome", "departement"),
+	"s4-dip-anc-dep": ("anciennete_poste_ans", "niveau_diplome", "departement"),
+	"s4-age-anc-dep": ("age", "anciennete_poste_ans", "departement"),
+	"s4-age-dip-anc": ("age", "anciennete_poste_ans", "niveau_diplome"),
+	"s4-anc": ("anciennete_poste_ans",),
+	"s4-age-dip": ("age", "niveau_diplome"),
 }
+
 
 
 def get_scenario_features(scenario: str) -> tuple[str, ...]:
@@ -142,14 +146,18 @@ def fit_and_evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, 
 	model.fit(X_train_prepared, y_train)
 	return evaluate_model(model, X_test_prepared, y_test)
 
-def evaluer_scenario_tabulaire_cv(nom_scenario: str, model, besoin_dense: bool) -> dict:
+def evaluer_scenario_tabulaire_cv(nom_scenario: str, model, besoin_dense: bool, X_train, y_train, cross_validation_folds) -> dict:
     """Prédictions hors-échantillon (5-fold CV, train uniquement) pour un scénario tabulaire.
 
     Le Pipeline (preprocessing refit à chaque fold, sans fuite) est assemblé par
-    pipeline_tabulaire.build_scenario_pipeline, pas construit ici.
+    pipeline_tabulaire.build_scenario_pipeline, pas construit ici. X_train/y_train/cv sont
+    passés explicitement par l'appelant (notebook) : ce module n'entraîne jamais rien lui-même
+    et ne doit pas dépendre de variables globales du notebook.
     """
+    
     features_train = prepare_tabular_features(X_train, nom_scenario)
     pipeline_scenario = build_scenario_pipeline(nom_scenario, model, densify=besoin_dense)
-    y_pred_oof = cross_val_predict(pipeline_scenario, features_train, y_train, cv=cv, n_jobs=-1)
+	# Effectue les prédictions hors-échantillon pour chaque fold de la CV.
+    y_pred_oof = cross_val_predict(pipeline_scenario, features_train, y_train, cv=cross_validation_folds, n_jobs=-1)
     return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
 
