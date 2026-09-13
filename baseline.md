@@ -4,12 +4,6 @@ Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.
 
 Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement).
 
-## Scénario `s1`
-
-| Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
-|---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.652 | 🟢 0.633 | 🟢 0.514 | 🟢 0.548 | 🟢 11.1 % | 🟢 4.0 % |
-
 ## Scénario `s2`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
@@ -45,6 +39,12 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
 | `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.555 | 🟢 0.548 | 🟢 0.5 | 🟢 0.514 | 🟢 16.7 % | 🟢 7.3 % |
+
+## Scénario `s4-all`
+
+| Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
+|---|---|---|---|---|---|---|
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.652 | 🟢 0.633 | 🟢 0.514 | 🟢 0.548 | 🟢 11.1 % | 🟢 4.0 % |
 
 ## Scénario `s4-anc`
 

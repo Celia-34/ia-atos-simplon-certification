@@ -4,8 +4,8 @@ Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.
 
 Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement).
 
-## Scénario `s4-all`
+## Scénario `s1`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| RandomForestClassifier (class_weight='balanced') — évaluation finale test set | 🟢 0.676 | 🟢 0.644 | 🟢 0.456 | 🟢 0.506 | 🟢 10.0 % | 🟢 1.1 % |
+| LogisticRegression (class_weight='balanced') — évaluation finale test set | 🟢 0.678 | 🟢 0.659 | 🟢 0.644 | 🟢 0.555 | 🟢 11.1 % | 🟢 12.3 % |

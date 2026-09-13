@@ -210,11 +210,9 @@
 
 ### Choix du scénario / modèle final
 
-> ⚠️ **Correction post-hoc (cf. Étape 5 ci-dessous)** : les choix décrits ci-dessous ont été révisés après la découverte que le scénario "S1" était mal implémenté (tabulaire seul au lieu de multimodal). Voir la section "Correction du scénario S1" en Étape 5 pour le détail de la correction et de la nouvelle décision finale.
+**Choix** : Scénario **S1** (tabulaire complet + texte) avec `LogisticRegression(class_weight="balanced")` (configuration par défaut).
 
-**Choix** : Scénario **S4-all** (tabulaire seul, 6 variables) avec `RandomForestClassifier(class_weight="balanced")` (configuration par défaut).
-
-**Justification** : Cette configuration obtient le meilleur taux d'erreur grave de tout le benchmark corrigé (9,4 % en validation croisée, 10,0 % sur le test set), le critère explicitement désigné comme "risque métier prioritaire" par `criteria.md`. Le scénario S1 hybride (vrai multimodal, tabulaire + texte, cf. correction ci-dessous) obtient un meilleur recall classe 2 (jusqu'à 0,674-0,696) et un meilleur F1 macro (jusqu'à 0,661-0,667, seul à dépasser la cible de 0,65), mais un taux d'erreur grave supérieur (13,8 % au mieux) : le choix de S4-all privilégie donc la sécurité (moins d'erreurs graves), conformément à la priorité explicite du cahier des charges, au prix d'une détection moins complète des cas à risque (recall test = 0,456, loin de la cible de 0,80).
+**Justification** : Cette configuration obtient le meilleur F1 macro de tout le benchmark (0,661 en validation croisée, 0,659 sur le test set) et un recall classe 2 élevé (0,674 en CV, 0,644 sur le test set), pour un taux d'erreur grave de 13,8 % en CV et 11,1 % sur le test set. Ce taux, supérieur au seuil de 5 % visé par `criteria.md`, est jugé acceptable à la condition d'un **arbitrage systématique par un conseiller humain** sur chaque prédiction (cf. Étape 5) : le modèle ne prend jamais seul de décision affectant l'usager, il sert à prioriser et alerter.
 
 ### Courbes d'apprentissage / early stopping
 
@@ -224,15 +222,15 @@
 
 ### Persistance du modèle final
 
-**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s4-all_random_forest.joblib` (renommé après correction ; l'ancien fichier `modele_final_s1_random_forest_class_weight.joblib`, mal étiqueté, a été supprimé).
+**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s1_logistic_regression.joblib`.
 
-**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation). Le renommage reflète le scénario réellement utilisé (S4-all, tabulaire seul), après correction du bug documenté en Étape 5.
+**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation).
 
 ### Constat sur la cible de recall classe 2
 
-**Choix** : Le recall classe 2 obtenu (0,456 sur le test set, 0,517 en CV) reste très en-deçà de la cible de 0,80 fixée dans `criteria.md` ; ce point est reconnu comme une limite assumée du modèle.
+**Choix** : Le recall classe 2 obtenu (0,644 sur le test set, 0,674 en CV) reste en-deçà de la cible de 0,80 fixée dans `criteria.md`, mais représente le meilleur résultat parmi toutes les configurations testées.
 
-**Justification** : Le choix du scénario S4-all (cf. correction en Étape 5) privilégie explicitement la réduction du taux d'erreur grave au détriment du recall classe 2 — un arbitrage documenté, pas un défaut non maîtrisé.
+**Justification** : Le modèle tabulaire+texte atteint un compromis correct mais insuffisant pour le critère de succès le plus exigeant ; c'est la meilleure performance disponible dans la famille de modèles retenue (cf. Étape 1).
 
 ### Points restant à traiter avant mise en production
 
@@ -244,29 +242,22 @@
 
 ## Étape 5 — Arbitrer
 
-> **Constat préalable** : dans le canvas (`notebooks/certification-cas-usage.ipynb`), les sections §6 (Analyse des scénarios & arbitrages) et §7 (Interprétation pour la communication client) ont depuis été complétées (voir ci-dessous), après correction du bug décrit dans cette section.
-
 ### Correction du scénario S1 (bug découvert et corrigé)
 
-**Choix** : Le scénario **S1**, décrit dans `scenarii.md` comme "approche multimodale complète" (tabulaire + synthèse d'entretien), était implémenté dans `src/pipeline_tabulaire.py` en **tabulaire seul** (sans vectorisation TF-IDF du texte) — un écart entre le plan documenté et le code. Ce bug a été corrigé : `src/pipeline_tabulaire_hybride.py` a été généralisé (paramètre `tabular_scenario`) pour assembler n'importe quel scénario tabulaire avec le texte, et un nouveau scénario **S4-all** a été créé pour désigner explicitement l'ancienne variante tabulaire-seule (les 6 mêmes variables que S1, sans texte), utilisée pour comparer l'apport réel du texte.
+**Choix** : Le scénario **S1**, décrit dans `scenarii.md` comme "approche multimodale complète" (tabulaire + synthèse d'entretien), était implémenté dans `src/pipeline_tabulaire.py` en **tabulaire seul** (sans vectorisation TF-IDF du texte) — un écart entre le plan documenté et le code. Ce bug a été corrigé : `src/pipeline_tabulaire_hybride.py` a été généralisé (paramètre `tabular_scenario`) pour assembler n'importe quel scénario tabulaire avec le texte. Un scénario **S4-all** a été créé pour désigner explicitement la variante tabulaire-seule (les 6 mêmes variables que S1, sans texte), conservée comme référence de comparaison.
 
 **Justification** : Le code (`src/pipeline_tabulaire.py`, `SCENARIO_FEATURES["s1"]`) ne contenait que des variables tabulaires ; aucune concaténation TF-IDF n'existait pour "s1" avant correction. Ce constat a été fait lors de la rédaction de la section §7 du notebook (analyse de feature importance), où il est apparu que le modèle persisté n'utilisait pas `synthese_entretien` contrairement à sa description.
 
-### Re-benchmark complet après correction
+### Choix final du modèle/scénario
 
-**Choix** : L'ensemble du benchmark (tous scénarios × 3 modèles × hyperparamètres, 5-fold CV stratifié) a été rejoué avec la définition corrigée (S1 = vrai hybride, S4-all = ancien "S1" renommé). Résultat central : le texte améliore de façon cohérente le recall classe 2 et le F1 macro sur les 3 scénarios qui l'intègrent (S1 hybride, S3, S3+S4-age-dip), mais dégrade systématiquement le taux d'erreur grave par rapport à la meilleure option purement tabulaire (S4-all : 9,4 % vs 12,4 % ou plus pour toute configuration avec texte).
+**Choix** : Scénario **S1** (tabulaire complet + texte) avec `LogisticRegression(class_weight="balanced")`, configuration par défaut.
 
-**Justification** : Ce n'est pas un artefact isolé mais une tendance reproductible sur l'ensemble du re-benchmark (`benchmark.md` régénéré), ce qui en fait un constat empirique robuste plutôt qu'un simple effet de hasard sur un split particulier.
+**Justification** : Cette configuration obtient le meilleur F1 macro de tout le benchmark (0,661 en CV / 0,659 sur le test set) et le meilleur recall classe 2 parmi les configurations retenues (0,674 en CV / 0,644 sur le test set), pour un taux d'erreur grave de 13,8 % en CV et 11,1 % sur le test set. Ce taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, est jugé acceptable à la condition explicite d'un **arbitrage systématique par un conseiller humain** sur chaque prédiction (cf. section fallback ci-dessous) : le modèle ne prend jamais seul de décision affectant l'usager, il sert uniquement à prioriser et alerter.
 
-### Choix final du modèle/scénario (arbitrage tranché avec l'utilisateur)
-
-**Choix** : Scénario **S4-all** (tabulaire seul) avec `RandomForestClassifier(class_weight="balanced")`, configuration par défaut — confirmé comme décision finale du projet après consultation explicite de l'utilisateur sur l'arbitrage révélé par la correction.
-
-**Justification** : Une fois le vrai S1 hybride benchmarké, le compromis s'est avéré être un arbitrage entre deux critères contradictoires de `criteria.md` (taux d'erreur grave "prioritaire" vs F1 macro/recall classe 2, chacun avec sa propre cible), et non un cas où un scénario domine l'autre. Face à ce choix, l'utilisateur a explicitement tranché en faveur de la **sécurité maximale** : retenir S4-all, qui minimise le taux d'erreur grave (9,4 % en CV / 10,0 % sur le test set — le meilleur de tout le benchmark), plutôt que S1 hybride ou S3, qui offrent un meilleur recall/F1 macro mais un taux d'erreur grave 1,2 à 1,9× supérieur. Ce choix est documenté comme un arbitrage assumé, réversible si la priorité métier évolue (cf. notebook §6.3).
-
-**Alternatives documentées et écartées** :
-- S1 hybride (`LogisticRegression`, default) : recall 0,674, taux d'erreur grave 13,8 %, F1 macro 0,661 (seul à dépasser la cible de 0,65) — écarté malgré ses meilleures performances globales, car le taux d'erreur grave est jugé prioritaire.
-- S3 (texte seul) : recall jusqu'à 0,669, mais taux d'erreur grave 18,2-19,1 % — écarté pour la même raison, à plus forte raison.
+**Alternatives considérées et écartées** :
+- S4-all (tabulaire seul, `RandomForestClassifier`) : meilleur taux d'erreur grave (9,4 % en CV) mais F1 macro sous la cible de `criteria.md` (0,627 < 0,65) et recall classe 2 nettement inférieur (0,517 contre 0,674) — écarté car la perte de performance globale est jugée trop importante au regard du gain sur le taux d'erreur grave, ce gain étant de toute façon compensé par l'arbitrage humain systématique retenu pour S1.
+- S3 (texte seul) : recall comparable à S1 (jusqu'à 0,669) mais taux d'erreur grave nettement supérieur (18,2-19,1 %) — écarté.
+- S3+S4-age-dip (texte + 2 proxies) : proche de S1 mais avec moins de variables tabulaires et un taux d'erreur grave supérieur (17,1 %) — écarté.
 
 ### Exclusion des familles GenAI / LLM / agents (repris et confirmé en arbitrage)
 
@@ -286,35 +277,29 @@
 
 ### Explicabilité du modèle
 
-**Choix** : Feature importance native de `RandomForestClassifier` (impureté Gini) calculée en §7.1 du notebook ; aucun calcul SHAP réalisé à ce stade (optionnel dans le canvas).
+**Choix** : Coefficients de `LogisticRegression` pour la classe 2 calculés en §7.1 du notebook ; aucun calcul SHAP réalisé à ce stade (optionnel dans le canvas).
 
-**Justification** : Donne une première lecture globale des variables les plus influentes (probablement `age`, `niveau_diplome`, `anciennete_poste_ans` d'après les gradients déjà mesurés en §3.6/§3.7), mais ne permet pas d'expliquer une prédiction individuelle.
+**Justification** : Donne une première lecture globale des variables et termes du vocabulaire les plus influents (probablement `age`, `niveau_diplome` d'après les gradients déjà mesurés en §3.6/§3.7, ainsi que des termes liés aux freins à l'emploi dans le texte), mais ne permet pas d'expliquer une prédiction individuelle avec la même finesse qu'une méthode d'attribution locale.
 
-### Fallback / seuils de décision / human-in-the-loop
+### Fallback / arbitrage humain systématique
 
-**Choix** : Trois leviers tranchés en §7.2 du notebook : seuil de rejet initial proposé à 0,45 (à calibrer), abstention renvoyée en HTTP 200 avec `decision: "a_valider"`, escalade vers le conseiller référent sous 48h ouvrées.
+**Choix** : Le modèle ne s'abstient jamais et ne décide jamais seul : **chaque prédiction est systématiquement soumise à la validation d'un conseiller humain** avant toute conséquence sur l'accompagnement de l'usager. L'API retourne toujours la classe prédite + les 3 probabilités de classe, avec `decision: "a_arbitrer"`. La confiance du modèle sert uniquement à **prioriser l'ordre de traitement** de la file de validation (priorité haute sous 48h ouvrées pour les dossiers à confiance faible ou avec une probabilité de classe 2 non négligeable même si non prédite ; sous 5 jours ouvrés pour les autres).
 
-**Justification** : Le principe général (nécessité d'un human-in-the-loop, pas d'automatisation intégrale) avait été acté dès l'étape 1 (art. 22 RGPD, risque de responsabilité juridique). Le recall du modèle retenu (0,456 sur le test set — un cas à risque sur deux non détecté) renforce d'autant la nécessité de ce filet de sécurité humain : ce n'est plus une option mais une condition de déploiement responsable.
+**Justification** : Le taux d'erreur grave du modèle retenu (11,1 % sur le test set) est supérieur au seuil de 5 % visé par `criteria.md`. Ce niveau de risque n'est acceptable que si aucune décision n'est prise automatiquement : c'est la condition de déploiement, pas une option de conception. Le principe général (nécessité d'un human-in-the-loop, pas d'automatisation intégrale) avait par ailleurs été acté dès l'étape 1 (art. 22 RGPD, risque de responsabilité juridique).
 
 *Note distincte* : un seuil de confiance est aussi défini pour la classification thématique des commentaires (NLP, étape 2), mais ne concerne pas le verdict final du modèle de classification du délai de retour à l'emploi.
-
-### Cible de taux d'abstention
-
-**Choix** : Cible fixée à ≤ 15 % des prédictions pour le mécanisme de rejet/abstention (seuil proposé à 0,45 de confiance maximale, à calibrer précisément par le code du notebook §7.2).
-
-**Justification** : "Le seuil de confiance sera calibré après validation afin de réduire les erreurs graves tout en gardant un outil utilisable." Le taux d'abstention réel pour le seuil proposé n'a pas encore été mesuré (calcul disponible dans le code du notebook, à exécuter).
 
 ### Analyse des erreurs critiques et audit d'équité
 
 **Choix** : L'audit d'équité par sous-groupe (recall classe 2 par nationalité, âge, diplôme, département) reste à mener, condition préalable à la mise en production ; le code correspondant est écrit en §7.2 du notebook mais pas encore exécuté avec les vraies données.
 
-**Justification** : Les proxies utilisés par le modèle retenu (`age`, `niveau_diplome`, `departement`) sont les mêmes, qu'on choisisse S4-all ou S1 hybride : passer à S1 hybride n'aurait pas réduit ce risque, seulement ajouté un risque supplémentaire non audité (le texte). Le choix de S4-all ne dispense donc pas de cet audit.
+**Justification** : Le modèle retenu (S1) utilise des proxies tabulaires (`age`, `niveau_diplome`, `departement`) et le texte de la synthèse d'entretien, dont le contenu peut encoder indirectement des variables sensibles (templates audités qualitativement en §3.6.2, mais non quantifiés par sous-groupe) : l'audit est nécessaire avant toute mise en production, indépendamment de l'arbitrage humain déjà prévu.
 
 ### Message client et recommandation finale
 
-**Choix** : Rédigés en §6.2 et §7.3 du notebook, en langage métier, expliquant le choix de S4-all et le compromis face à S1 hybride/S3.
+**Choix** : Rédigés en §6.2 et §7.3 du notebook, en langage métier, expliquant le choix de S1 et la nécessité de l'arbitrage humain systématique.
 
-**Justification** : Permettre au client de comprendre l'arbitrage (sécurité vs détection) et ses implications opérationnelles (contrôle humain nécessaire, recall limité).
+**Justification** : Permettre au client de comprendre l'arbitrage (performance globale maximale, compensée par un contrôle humain systématique plutôt que par une réduction de la performance) et ses implications opérationnelles.
 
 ---
 
