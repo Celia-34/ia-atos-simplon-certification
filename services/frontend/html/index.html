@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emploi-Retour — Évaluation du risque de non-retour à l'emploi</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin: .4rem 0 .1rem; font-size: .9rem; }
+    input, select { width: 100%; padding: .4rem; box-sizing: border-box; }
+    button { padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+    #result { margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none; }
+    .rapide { background: #e6f4ea; } .standard { background: #fff4e5; } .risque { background: #fce8e6; }
+  </style>
+</head>
+<body>
+  <h1>Emploi-Retour — Évaluation du risque de non-retour à l'emploi</h1>
+  <form id="scoreForm">
+    <fieldset>
+      <legend>Profil de l'usager</legend>
+
+      <label for="age">Âge</label>
+      <input id="age" name="age" data-type="number" type="number" required>
+
+      <label for="anciennete_poste_ans">Ancienneté dans le dernier poste (années)</label>
+      <input id="anciennete_poste_ans" name="anciennete_poste_ans" data-type="number" type="number" step="0.1" required>
+
+      <label for="niveau_diplome">Plus haut niveau de diplôme obtenu</label>
+      <select id="niveau_diplome" name="niveau_diplome" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="Sans diplôme">Sans diplôme</option>
+        <option value="Bac">Bac</option>
+        <option value="Bac+2">Bac+2</option>
+        <option value="Bac+5">Bac+5</option>
+      </select>
+
+      <label for="est_allocataire">Statut d'indemnisation</label>
+      <select id="est_allocataire" name="est_allocataire" data-type="number" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="1">Allocataire</option>
+        <option value="0">Non allocataire</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Projet professionnel</legend>
+
+      <label for="code_rome_vise">Code ROME du métier visé</label>
+      <select id="code_rome_vise" name="code_rome_vise" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="A1202">A1202</option>
+        <option value="A1203">A1203</option>
+        <option value="A1301">A1301</option>
+        <option value="A1401">A1401</option>
+        <option value="A1501">A1501</option>
+        <option value="C1102">C1102</option>
+        <option value="C1110">C1110</option>
+        <option value="C1201">C1201</option>
+        <option value="C1302">C1302</option>
+        <option value="C1501">C1501</option>
+        <option value="D1210">D1210</option>
+        <option value="D1401">D1401</option>
+        <option value="D1406">D1406</option>
+        <option value="D1502">D1502</option>
+        <option value="D1503">D1503</option>
+        <option value="F1603">F1603</option>
+        <option value="G1203">G1203</option>
+        <option value="G1302">G1302</option>
+        <option value="G1601">G1601</option>
+        <option value="G1602">G1602</option>
+        <option value="G1801">G1801</option>
+        <option value="H1206">H1206</option>
+        <option value="H1504">H1504</option>
+        <option value="H2502">H2502</option>
+        <option value="I1304">I1304</option>
+        <option value="J1301">J1301</option>
+        <option value="J1506">J1506</option>
+        <option value="K1201">K1201</option>
+        <option value="K1304">K1304</option>
+        <option value="K1403">K1403</option>
+        <option value="K1601">K1601</option>
+        <option value="K1903">K1903</option>
+        <option value="K2101">K2101</option>
+        <option value="K2106">K2106</option>
+        <option value="K2111">K2111</option>
+        <option value="M1203">M1203</option>
+        <option value="M1501">M1501</option>
+        <option value="M1602">M1602</option>
+        <option value="M1607">M1607</option>
+        <option value="M1705">M1705</option>
+        <option value="M1801">M1801</option>
+        <option value="M1802">M1802</option>
+        <option value="M1805">M1805</option>
+        <option value="M1806">M1806</option>
+        <option value="N1101">N1101</option>
+        <option value="N1301">N1301</option>
+        <option value="N1303">N1303</option>
+        <option value="N4101">N4101</option>
+        <option value="N4301">N4301</option>
+        <option value="W1401">W1401</option>
+      </select>
+
+      <label for="departement">Département de résidence</label>
+      <select id="departement" name="departement" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="01">01</option><option value="02">02</option><option value="03">03</option>
+        <option value="04">04</option><option value="05">05</option><option value="06">06</option>
+        <option value="07">07</option><option value="08">08</option><option value="09">09</option>
+        <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+        <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+        <option value="16">16</option><option value="17">17</option><option value="18">18</option>
+        <option value="19">19</option><option value="21">21</option><option value="22">22</option>
+        <option value="23">23</option><option value="24">24</option><option value="25">25</option>
+        <option value="26">26</option><option value="27">27</option><option value="28">28</option>
+        <option value="29">29</option><option value="2A">2A</option><option value="2B">2B</option>
+        <option value="30">30</option><option value="31">31</option><option value="32">32</option>
+        <option value="33">33</option><option value="34">34</option><option value="35">35</option>
+        <option value="36">36</option><option value="37">37</option><option value="38">38</option>
+        <option value="39">39</option><option value="40">40</option><option value="41">41</option>
+        <option value="42">42</option><option value="43">43</option><option value="44">44</option>
+        <option value="45">45</option><option value="46">46</option><option value="47">47</option>
+        <option value="48">48</option><option value="49">49</option><option value="50">50</option>
+        <option value="51">51</option><option value="52">52</option><option value="53">53</option>
+        <option value="54">54</option><option value="55">55</option><option value="56">56</option>
+        <option value="57">57</option><option value="58">58</option><option value="59">59</option>
+        <option value="60">60</option><option value="61">61</option><option value="62">62</option>
+        <option value="63">63</option><option value="64">64</option><option value="65">65</option>
+        <option value="66">66</option><option value="67">67</option><option value="68">68</option>
+        <option value="69">69</option><option value="70">70</option><option value="71">71</option>
+        <option value="72">72</option><option value="73">73</option><option value="74">74</option>
+        <option value="76">76</option><option value="77">77</option><option value="78">78</option>
+        <option value="79">79</option><option value="80">80</option><option value="81">81</option>
+        <option value="82">82</option><option value="83">83</option><option value="84">84</option>
+        <option value="85">85</option><option value="86">86</option><option value="87">87</option>
+        <option value="88">88</option><option value="89">89</option><option value="90">90</option>
+        <option value="91">91</option><option value="92">92</option><option value="93">93</option>
+        <option value="94">94</option><option value="95">95</option><option value="97">97</option>
+      </select>
+    </fieldset>
+
+    <button type="submit">Évaluer le risque</button>
+    <button type="button" id="fillExample">Remplir un exemple</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById('scoreForm');
+    const result = document.getElementById('result');
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    const esc = (s) => String(s).replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const CLASS_LABELS = {
+      0: { label: 'Retour rapide à l\u2019emploi', css: 'rapide' },
+      1: { label: 'Retour standard à l\u2019emploi', css: 'standard' },
+      2: { label: 'Risque de non-retour à l\u2019emploi', css: 'risque' },
+    };
+
+    function show(html, cls) {
+      result.className = cls || '';
+      result.innerHTML = html;
+      result.style.display = 'block';
+    }
+    function buildPayload(f) {
+      const payload = {};
+      for (const field of f.elements) {
+        if (!field.name) continue;
+        if (field.dataset.type === 'number') {
+          payload[field.name] = field.value.trim() === '' ? NaN : Number(field.value);
+        } else {
+          payload[field.name] = field.value;
+        }
+      }
+      return payload;
+    }
+
+    function formatValidationError(detail) {
+      if (!Array.isArray(detail)) return `<li>${esc(detail ?? 'Saisie invalide.')}</li>`;
+      return detail
+        .map((e) => `<li><code>${esc((e.loc || []).slice(-1)[0])}</code> — ${esc(e.msg)}</li>`)
+        .join('');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      show('Évaluation en cours…');
+
+      try {
+        const resp = await fetch('/api/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildPayload(form)),
+        });
+
+        const body = await resp.json().catch(() => ({}));
+
+        if (resp.ok) {
+          const info = CLASS_LABELS[body.prediction] || { label: 'Classe inconnue', css: '' };
+          const pct = (body.probability * 100).toFixed(1);
+          show(`
+            <strong>${info.label}</strong>
+            <p>Probabilité estimée de cette classe : <strong>${esc(pct)} %</strong></p>
+            <p style="font-size:.8rem;opacity:.7">
+              modèle ${esc(body.model_version)} · requête <code>${esc(body.request_id)}</code>
+            </p>`, info.css);
+
+        } else if (resp.status === 422) {
+          show(`<strong>Saisie invalide</strong><ul>${formatValidationError(body.detail)}</ul>`, 'risque');
+
+        } else if (resp.status === 503) {
+          show(`<strong>Service de scoring indisponible</strong>
+                <p>Le moteur de scoring ne répond pas. Réessayez dans quelques instants.</p>`, 'risque');
+
+        } else if (resp.status === 502) {
+          show(`<strong>Erreur du moteur de scoring</strong>
+                <p>La demande n'a pas pu être évaluée. L'incident est enregistré.</p>`, 'risque');
+
+        } else {
+          show(`<strong>Erreur ${resp.status}</strong>
+                <p>${esc(body.detail || 'Réponse inattendue du service.')}</p>`, 'risque');
+        }
+
+      } catch (err) {
+        show(`<strong>Service injoignable</strong>
+              <p>Impossible de contacter le service. Vérifiez que la stack est démarrée.</p>`, 'risque');
+
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('fillExample').addEventListener('click', () => {
+      const example = {
+        age: 35, anciennete_poste_ans: 3.5, niveau_diplome: 'Bac+2',
+        est_allocataire: '1', code_rome_vise: 'M1607', departement: '75',
+      };
+      for (const [name, value] of Object.entries(example)) {
+        const field = form.elements[name];
+        if (field) field.value = value;
+      }
+    });
+  </script>
+</body>
+</html>

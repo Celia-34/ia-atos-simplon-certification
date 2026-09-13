@@ -21,13 +21,19 @@ data/*.png
 data/*.jpg
 !data/.gitkeep
 
-# Modèles trop lourds pour Git
+# Modèles trop lourds pour Git (notebooks/entraînement) — pas d'impact sur
+# services/model/models/, qui embarque volontairement l'artefact servi par l'API.
 models/*.pt
 models/*.pth
 models/*.joblib
 models/*.npz
 models/*.npy
 !models/.gitkeep
+!services/model/models/*.joblib
+!services/model/models/*.json
+
+# Logs runtime des services
+services/*/logs/
 
 # Cache HuggingFace
 .cache/
