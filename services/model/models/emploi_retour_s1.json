@@ -1,0 +1,23 @@
+{
+  "model_name": "emploi_retour_s1",
+  "model_version": "v1.0.0",
+  "created_at": "2026-09-13",
+  "scenario": "s1",
+  "feature_columns_numeric": ["age", "anciennete_poste_ans"],
+  "feature_columns_categorical": ["niveau_diplome", "code_rome_vise", "est_allocataire", "departement"],
+  "classes": {
+    "0": "retour_rapide",
+    "1": "retour_standard",
+    "2": "a_risque"
+  },
+  "metrics_holdout": {
+    "accuracy": 0.652,
+    "f1_macro": 0.626,
+    "recall_classe_2": 0.489,
+    "f1_classe_2": 0.503,
+    "taux_erreur_grave_2_vers_0": 0.078,
+    "taux_erreur_0_vers_2": 0.027
+  },
+  "sklearn_version": "1.9.0",
+  "dataset_sha256": null
+}

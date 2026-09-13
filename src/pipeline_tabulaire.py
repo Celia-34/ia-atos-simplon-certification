@@ -15,7 +15,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import cross_val_predict
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, OrdinalEncoder, StandardScaler
 from transformers import data
 
 from src import metrics as metrics_module
@@ -24,6 +24,9 @@ from src.metrics import evaluate_model
 
 
 NUMERIC_FEATURES = ("age", "anciennete_poste_ans")
+# Ordre croissant du niveau d'études (§2.3), encodé par OrdinalEncoder plutôt que OneHotEncoder
+# pour préserver cette relation d'ordre.
+NIVEAU_DIPLOME_ORDER = ["Sans diplôme", "Bac", "Bac+2", "Bac+5"]
 SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 	"s1": (
 		"age",
@@ -94,7 +97,10 @@ def build_tabular_preprocessor(scenario: str) -> ColumnTransformer:
 	"""
 	features = get_scenario_features(scenario)
 	numeric_features = [feature for feature in features if feature in NUMERIC_FEATURES]
-	categorical_features = [feature for feature in features if feature not in NUMERIC_FEATURES]
+	ordinal_features = [feature for feature in features if feature == "niveau_diplome"]
+	categorical_features = [
+		feature for feature in features if feature not in NUMERIC_FEATURES and feature not in ordinal_features
+	]
 
 	transformers = []
 	if numeric_features:
@@ -105,6 +111,15 @@ def build_tabular_preprocessor(scenario: str) -> ColumnTransformer:
 			]
 		)
 		transformers.append(("numeric", numeric_pipeline, numeric_features))
+
+	if ordinal_features:
+		ordinal_pipeline = Pipeline(
+			steps=[
+				("imputer", SimpleImputer(strategy="most_frequent")),
+				("encoder", OrdinalEncoder(categories=[NIVEAU_DIPLOME_ORDER], handle_unknown="use_encoded_value", unknown_value=-1)),
+			]
+		)
+		transformers.append(("ordinal", ordinal_pipeline, ordinal_features))
 
 	if categorical_features:
 		categorical_pipeline = Pipeline(

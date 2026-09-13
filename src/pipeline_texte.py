@@ -96,6 +96,14 @@ def _to_dense(X):
     return X.toarray() if hasattr(X, "toarray") else X
 
 
+def build_tfidf_vectorizer(
+    max_features: int = DEFAULT_MAX_FEATURES,
+    min_df: int = DEFAULT_MIN_DF,
+) -> TfidfVectorizer:
+    """Build the TF-IDF vectorizer shared by scenario S3 and hybrid scenarios (§5.2.1)."""
+    return TfidfVectorizer(max_features=max_features, min_df=min_df)
+
+
 def build_text_pipeline(
     model,
     densify: bool = False,
@@ -107,7 +115,7 @@ def build_text_pipeline(
     Centralizes the TF-IDF vectorizer settings so they stay consistent between
     §4.2.2 (S3 preparation) and §5 (CV benchmark, hyperparameter search).
     """
-    etapes = [("tfidf", TfidfVectorizer(max_features=max_features, min_df=min_df))]
+    etapes = [("text", build_tfidf_vectorizer(max_features, min_df))]
     if densify:
         etapes.append(("densify", FunctionTransformer(_to_dense)))
     etapes.append(("model", model))

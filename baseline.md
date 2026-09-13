@@ -8,7 +8,7 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.664 | 🟢 0.634 | 🟢 0.456 | 🟢 0.509 | 🟢 8.9 % | 🟢 2.1 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.676 | 🟢 0.644 | 🟢 0.456 | 🟢 0.506 | 🟢 10.0 % | 🟢 1.1 % |
 
 ## Scénario `s2`
 
@@ -38,13 +38,13 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.528 | 🟢 0.511 | 🟢 0.456 | 🟢 0.425 | 🟢 14.4 % | 🟢 8.0 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.53 | 🟢 0.514 | 🟢 0.456 | 🟢 0.432 | 🟢 13.3 % | 🟢 7.0 % |
 
 ## Scénario `s4-age-dip-anc-dep`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.616 | 🟢 0.592 | 🟢 0.489 | 🟢 0.471 | 🟢 11.1 % | 🟢 7.5 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.598 | 🟢 0.578 | 🟢 0.489 | 🟢 0.476 | 🟢 13.3 % | 🟢 5.3 % |
 
 ## Scénario `s4-anc`
 
@@ -56,4 +56,4 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.458 | 🟢 0.426 | 🟢 0.289 | 🟢 0.265 | 🟢 27.8 % | 🟢 15.5 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.474 | 🟢 0.443 | 🟢 0.311 | 🟢 0.287 | 🟢 26.7 % | 🟢 14.4 % |
