@@ -28,7 +28,21 @@ NUMERIC_FEATURES = ("age", "anciennete_poste_ans")
 # pour préserver cette relation d'ordre.
 NIVEAU_DIPLOME_ORDER = ["Sans diplôme", "Bac", "Bac+2", "Bac+5"]
 SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
+	# S1 (§4.2/§6.1) : partie TABULAIRE du scénario multimodal complet. Utilisé seul, ce tuple ne
+	# constitue PAS le scénario S1 (qui est hybride, cf. src/pipeline_tabulaire_hybride.py avec
+	# tabular_scenario="s1") : pour la variante purement tabulaire, utiliser "s4-all" ci-dessous.
 	"s1": (
+		"age",
+		"anciennete_poste_ans",
+		"niveau_diplome",
+		"code_rome_vise",
+		"est_allocataire",
+		"departement",
+	),
+	# S4-all : mêmes variables tabulaires que "s1", MAIS sans le texte — sert de référence pure
+	# tabulaire pour mesurer l'apport réel du texte dans le scénario S1 hybride (cf. §6.1).
+	# Anciennement appelé (à tort) "s1" avant correction : cf. décision consignée en §5.6/§6.
+	"s4-all": (
 		"age",
 		"anciennete_poste_ans",
 		"niveau_diplome",

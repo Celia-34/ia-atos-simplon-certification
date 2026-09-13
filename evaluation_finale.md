@@ -4,8 +4,8 @@ Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.
 
 Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement).
 
-## Scénario `s1`
+## Scénario `s4-all`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| RandomForestClassifier (class_weight={0:1,1:1,2:3}) — évaluation finale test set | 🟢 0.656 | 🟢 0.63 | 🟢 0.478 | 🟢 0.506 | 🟢 7.8 % | 🟢 1.6 % |
+| RandomForestClassifier (class_weight='balanced') — évaluation finale test set | 🟢 0.676 | 🟢 0.644 | 🟢 0.456 | 🟢 0.506 | 🟢 10.0 % | 🟢 1.1 % |

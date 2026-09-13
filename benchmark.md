@@ -8,15 +8,15 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| HistGradientBoostingClassifier (default) | 0.613 | 0.577 | 🔴 0.373 | 0.434 | 12.4 % | 🟢 3.5 % |
-| LogisticRegression (C=0.1) | 0.506 | 0.495 | 0.622 | 0.436 | 16.6 % | 🔴 15.6 % |
-| LogisticRegression (C=10) | 🔴 0.501 | 🔴 0.488 | 0.525 | 🔴 0.398 | 🔴 18.2 % | 13.9 % |
-| LogisticRegression (default) | 0.509 | 0.497 | 0.547 | 0.41 | 17.1 % | 14.0 % |
-| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.636 | 0.614 | 0.511 | 0.503 | 9.7 % | 4.4 % |
-| RandomForestClassifier (default) | 0.648 | 0.627 | 0.517 | 0.529 | 🟢 9.4 % | 4.1 % |
-| RandomForestClassifier (max_depth=10) | 0.55 | 0.526 | 0.646 | 0.49 | 16.6 % | 8.8 % |
-| RandomForestClassifier (min_samples_leaf=5) | 0.562 | 0.543 | 🟢 0.669 | 0.475 | 13.8 % | 10.9 % |
-| RandomForestClassifier (n_estimators=300) | 🟢 0.654 | 🟢 0.633 | 0.511 | 🟢 0.535 | 9.7 % | 3.6 % |
+| HistGradientBoostingClassifier (default) | 0.681 | 0.657 | 🔴 0.525 | 0.556 | 🟢 12.4 % | 🟢 5.2 % |
+| LogisticRegression (C=0.1) | 0.682 | 🟢 0.667 | 🟢 0.696 | 🟢 0.581 | 🔴 16.3 % | 12.4 % |
+| LogisticRegression (C=10) | 🔴 0.646 | 🔴 0.628 | 0.613 | 🔴 0.525 | 15.5 % | 11.2 % |
+| LogisticRegression (default) | 0.676 | 0.661 | 0.674 | 0.573 | 13.8 % | 11.1 % |
+| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.671 | 0.654 | 0.649 | 0.563 | 13.5 % | 12.7 % |
+| RandomForestClassifier (default) | 🟢 0.684 | 0.666 | 0.63 | 0.576 | 15.7 % | 10.1 % |
+| RandomForestClassifier (max_depth=10) | 0.659 | 0.644 | 0.688 | 0.555 | 15.2 % | 18.3 % |
+| RandomForestClassifier (min_samples_leaf=5) | 0.655 | 0.639 | 0.682 | 0.546 | 🔴 16.3 % | 🔴 19.1 % |
+| RandomForestClassifier (n_estimators=300) | 0.684 | 0.665 | 0.63 | 0.574 | 🔴 16.3 % | 10.4 % |
 
 ## Scénario `s2`
 
@@ -81,3 +81,17 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | RandomForestClassifier (max_depth=10) | 0.515 | 0.491 | 0.63 | 0.481 | 🔴 20.2 % | 10.8 % |
 | RandomForestClassifier (min_samples_leaf=5) | 0.48 | 🔴 0.446 | 🟢 0.74 | 0.463 | 18.5 % | 15.6 % |
 | RandomForestClassifier (n_estimators=300) | 🟢 0.554 | 🟢 0.544 | 0.503 | 🟢 0.498 | 16.0 % | 6.9 % |
+
+## Scénario `s4-all`
+
+| Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
+|---|---|---|---|---|---|---|
+| HistGradientBoostingClassifier (default) | 0.613 | 0.577 | 🔴 0.373 | 0.434 | 12.4 % | 🟢 3.5 % |
+| LogisticRegression (C=0.1) | 0.506 | 0.495 | 0.622 | 0.436 | 16.6 % | 🔴 15.6 % |
+| LogisticRegression (C=10) | 🔴 0.501 | 🔴 0.488 | 0.525 | 🔴 0.398 | 🔴 18.2 % | 13.9 % |
+| LogisticRegression (default) | 0.509 | 0.497 | 0.547 | 0.41 | 17.1 % | 14.0 % |
+| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.636 | 0.614 | 0.511 | 0.503 | 9.7 % | 4.4 % |
+| RandomForestClassifier (default) | 0.648 | 0.627 | 0.517 | 0.529 | 🟢 9.4 % | 4.1 % |
+| RandomForestClassifier (max_depth=10) | 0.55 | 0.526 | 0.646 | 0.49 | 16.6 % | 8.8 % |
+| RandomForestClassifier (min_samples_leaf=5) | 0.562 | 0.543 | 🟢 0.669 | 0.475 | 13.8 % | 10.9 % |
+| RandomForestClassifier (n_estimators=300) | 🟢 0.654 | 🟢 0.633 | 0.511 | 🟢 0.535 | 9.7 % | 3.6 % |
