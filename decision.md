@@ -240,6 +240,66 @@
 
 ---
 
+## Étape 5 — Arbitrer
+
+> **Constat préalable** : dans le canvas (`notebooks/certification-cas-usage.ipynb`), les sections §6 (Analyse des scénarios & arbitrages) et §7 (Interprétation pour la communication client) sont encore largement à l'état de gabarit non rempli (tableau §6.1 avec cellules `…`, placeholders `*[...]*` en §6.2, §6.3, §7.3, §7.4). Le journal de bord (Jour 5) le confirme explicitement : *« Etape 6 et 7 à compléter. Des éléments de l'étape 6 sont déjà dans 5.6 et 5.7. »* Les décisions ci-dessous distinguent donc ce qui est réellement tranché de ce qui reste en attente.
+
+### Choix final du modèle/scénario (cœur de l'arbitrage multi-critères)
+
+**Choix** : Scénario **S1** (multimodal complet) avec `RandomForestClassifier(class_weight={0:1,1:1,2:3})`, repris de l'étape 4 comme verdict d'arbitrage.
+
+**Justification** : Cette configuration améliore strictement les deux métriques prioritaires (recall classe 2 : 0,486→0,53 ; taux d'erreur grave : 10,2 %→9,9 %) pour un F1 macro identique (0,617). S3 (texte seul) avait un meilleur recall (0,66) mais un taux d'erreur grave bien plus élevé (19,1 % vs 9,9 %) : le choix de S1 privilégie donc la sécurité (moins d'erreurs graves) au prix d'une détection moins complète des cas à risque. *Ce compromis, formulé en §5.7, est explicitement renvoyé pour être documenté "en §6" mais n'y a pas encore été formellement repris.*
+
+### Exclusion des familles GenAI / LLM / agents (repris et confirmé en arbitrage)
+
+**Choix** : Seul le ML classique (scikit-learn) est retenu comme famille de modèles ; Deep Learning, SLM local, LLM+RAG et architecture agentique restent écartés.
+
+**Justification** :
+- DL : pas de volume suffisant (2000/500 lignes), explicabilité dégradée pour un gain incertain vs sklearn ; à réévaluer en M6 si le corpus texte grossit.
+- SLM local : hors scope, rôle déjà couvert par le zero-shot CamemBERT utilisé en amont pour classifier les commentaires (pas comme modèle final).
+- LLM API + RAG : pas de question ouverte sur corpus documentaire, sortie attendue = classe structurée ; enverrait des données socio-démographiques d'usagers à un tiers sans bénéfice pour une classification structurée.
+- Architecture agentique : une seule prédiction en sortie, pas d'orchestration multi-étapes ni d'actions, aucun besoin d'orchestration.
+
+### Compromis coût / latence
+
+**Choix** : Aucun chiffrage précis retenu à ce stade pour le modèle final ; seule une appréciation qualitative existe (ML classique = coût "faible" vs DL = "élevé (GPU train)", LLM API+RAG = "élevé (€/token)", architecture agentique = "très élevé").
+
+**Justification** : Non disponible — le tableau §6.1 (colonnes coût inférence, latence p95, explicabilité, dépendance fournisseur, biais, verdict) reste vide dans le canvas à ce jour. *Décision non finalisée, à signaler comme telle plutôt qu'à inventer.*
+
+### Explicabilité du modèle
+
+**Choix** : Aucun outil d'explicabilité (feature importance, SHAP) n'a encore été calculé ni tranché formellement.
+
+**Justification** : Non disponible — §7 mentionne comme piste "Feature importance, SHAP (optionnel), matrice de confusion commentée. Trois messages-clés maximum", mais reste au stade de consigne du gabarit, non renseigné.
+
+### Fallback / seuils de décision / human-in-the-loop
+
+**Choix** : Trois leviers de conception sont identifiés comme devant être tranchés (rejection threshold, abstention contrôlée, escalade humaine HITL), mais **aucune valeur concrète n'est encore retenue** — les cellules du canvas restent des exemples génériques du gabarit (ex. "*si proba ∈ [0.4, 0.6]...*").
+
+**Justification** : Le principe général (nécessité d'un human-in-the-loop, pas d'automatisation intégrale) avait été acté dès l'étape 1, au nom de l'art. 22 RGPD et du risque de responsabilité juridique. Le gabarit du canvas rappelle que "sans ces 3 éléments, ton modèle n'a pas de plan de fallback — il n'est pas déployable en prod sur un usage à enjeu", mais aucune réponse chiffrée n'est encore apportée. *Décision de conception amorcée mais non finalisée.*
+
+*Note distincte* : un seuil de confiance est bien défini, mais uniquement pour la classification thématique des commentaires (NLP, étape 2) : "en dessous du seuil de confiance, le commentaire est marqué `a_valider` pour une revue humaine (cf. §7.2) plutôt que d'être affecté automatiquement" — ce seuil ne concerne pas le verdict final du modèle de classification du délai de retour à l'emploi.
+
+### Cible de taux d'abstention
+
+**Choix** : Cible fixée à ≤ 15 % des prédictions pour le mécanisme de rejet/abstention.
+
+**Justification** : "Le seuil de confiance sera calibré après validation afin de réduire les erreurs graves tout en gardant un outil utilisable." Le document précise cependant explicitement que cette cible n'est pas encore mesurée : "aucune métrique à l'étape 4 sur ces 2 métriques (...) le benchmark n'implémente aucun mécanisme de seuil de confiance/rejet à ce stade (les modèles évalués prédisent systématiquement une classe), donc cette métrique ne peut pas encore être mesurée."
+
+### Analyse des erreurs critiques et audit d'équité
+
+**Choix** : L'audit d'équité par sous-groupe (recall classe 2 par nationalité, âge, diplôme) est identifié comme une action restant à mener, condition préalable à la mise en production.
+
+**Justification** : "Le modèle utilise des proxies socio-économiques identifiés comme sensibles (...) l'audit d'équité par sous-groupe (...) reste à conduire avant toute mise en production (cf. §7.2)."
+
+### Message client et recommandation finale
+
+**Choix** : Non rédigés à ce stade.
+
+**Justification** : Non disponible — §6.2 ("Recommandation finale au client") et §7.3 ("Message au client") restent des placeholders non complétés dans le canvas (`*[Quel scénario ? Pourquoi ? Quels compromis ?]*` ; `*[2-3 paragraphes lisibles par un décideur non technique...]*`).
+
+---
+
 ## Note méthodologique
 
 Le fichier `decisions.md` (squelette initial du projet) prévoyait des sections "Gestion des doublons", "Gestion des manquants", "Gestion des valeurs erratiques" et "Préparation" restées vides. Le présent document (`decision.md`) consolide ces décisions à partir du notebook (`journal-de-bord.ipynb`, canvas §1 à §5), de `criteria.md`, `scenarii.md` et `baseline.md`, qui font foi pour le détail des choix et justifications.

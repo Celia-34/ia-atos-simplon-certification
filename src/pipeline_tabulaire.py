@@ -152,13 +152,18 @@ def build_scenario_pipeline(scenario: str, model, densify: bool = False) -> Pipe
 	return Pipeline(steps=etapes)
 
 
-def fit_and_evaluate_tabular_scenario(model, X_train_prepared, X_test_prepared, y_train, y_test) -> dict:
-	"""Fit ``model`` on a tabular scenario's prepared features and return its §1.4 metrics.
+def fit_tabular_scenario(model, X_train_prepared, y_train):
+	"""Fit ``model`` on a tabular scenario's prepared training features.
 
 	No model is chosen by this module: ``model`` is an unfitted estimator supplied
 	by the caller (§5 picks the model family; §4 only benchmarks scenarios).
 	"""
 	model.fit(X_train_prepared, y_train)
+	return model
+
+
+def evaluate_tabular_scenario(model, X_test_prepared, y_test) -> dict:
+	"""Evaluate an already-fitted ``model`` on a tabular scenario's prepared test features and return its §1.4 metrics."""
 	return evaluate_model(model, X_test_prepared, y_test)
 
 def evaluer_scenario_tabulaire_cv(nom_scenario: str, model, besoin_dense: bool, X_train, y_train, cross_validation_folds) -> dict:
