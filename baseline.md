@@ -2,7 +2,7 @@
 
 Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.2). Chaque scénario est rejoué sur chacun des modèles candidats (métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même). Un tableau par scénario, pour comparer les modèles entre eux à features constantes.
 
-Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement).
+Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement) · ⭐ meilleure valeur de la colonne tous scénarios × modèles confondus.
 
 ## Scénario `s2`
 
@@ -14,7 +14,7 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.63 | 🟢 0.615 | 🟢 0.639 | 🟢 0.526 | 🟢 23.6 % | 🟢 18.7 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.63 | 🟢 0.615 | ⭐🟢 0.639 | 🟢 0.526 | 🟢 23.6 % | 🟢 18.7 % |
 
 ## Scénario `s4-age-anc-dep`
 
@@ -44,7 +44,7 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.652 | 🟢 0.633 | 🟢 0.514 | 🟢 0.548 | 🟢 11.1 % | 🟢 4.0 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | ⭐🟢 0.69 | ⭐🟢 0.672 | 🟢 0.556 | ⭐🟢 0.597 | ⭐🟢 5.6 % | ⭐🟢 5.3 % |
 
 ## Scénario `s4-anc`
 

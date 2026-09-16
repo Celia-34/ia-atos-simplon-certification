@@ -2,10 +2,10 @@
 
 Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.2). Chaque scénario est rejoué sur chacun des modèles candidats (métriques calculées par `src/metrics.py`, qui n'entraîne aucun modèle lui-même). Un tableau par scénario, pour comparer les modèles entre eux à features constantes.
 
-Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement).
+Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement) · ⭐ meilleure valeur de la colonne tous scénarios × modèles confondus.
 
 ## Scénario `s1`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| LogisticRegression (class_weight='balanced') — évaluation finale test set | 🟢 0.678 | 🟢 0.659 | 🟢 0.644 | 🟢 0.555 | 🟢 11.1 % | 🟢 12.3 % |
+| LogisticRegression (class_weight='balanced') — évaluation finale test set | ⭐🟢 0.686 | ⭐🟢 0.666 | ⭐🟢 0.644 | ⭐🟢 0.555 | ⭐🟢 10.0 % | ⭐🟢 13.4 % |

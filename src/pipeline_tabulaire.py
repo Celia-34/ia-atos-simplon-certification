@@ -32,7 +32,8 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 	# constitue PAS le scénario S1 (qui est hybride, cf. src/pipeline_tabulaire_hybride.py avec
 	# tabular_scenario="s1") : pour la variante purement tabulaire, utiliser "s4-all" ci-dessous.
 	"s1": (
-		"age",
+		"nationalite_hors_ue",
+        "age",
 		"anciennete_poste_ans",
 		"niveau_diplome",
 		"code_rome_vise",
@@ -43,7 +44,8 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 	# tabulaire pour mesurer l'apport réel du texte dans le scénario S1 hybride (cf. §6.1).
 	# Anciennement appelé (à tort) "s1" avant correction : cf. décision consignée en §5.6/§6.
 	"s4-all": (
-		"age",
+		"nationalite_hors_ue",
+        "age",
 		"anciennete_poste_ans",
 		"niveau_diplome",
 		"code_rome_vise",
@@ -180,18 +182,39 @@ def evaluate_tabular_scenario(model, X_test_prepared, y_test) -> dict:
 	"""Evaluate an already-fitted ``model`` on a tabular scenario's prepared test features and return its §1.4 metrics."""
 	return evaluate_model(model, X_test_prepared, y_test)
 
-def evaluer_scenario_tabulaire_cv(nom_scenario: str, model, besoin_dense: bool, X_train, y_train, cross_validation_folds) -> dict:
+def evaluer_scenario_tabulaire_cv(
+    nom_scenario: str,
+    model,
+    besoin_dense: bool,
+    X_train,
+    y_train,
+    cross_validation_folds,
+    couts=None,
+    seuil_a: float | None = None,
+    seuil_b: float | None = None,
+    cout_revue: float | None = None,
+) -> dict:
     """Prédictions hors-échantillon (5-fold CV, train uniquement) pour un scénario tabulaire.
 
     Le Pipeline (preprocessing refit à chaque fold, sans fuite) est assemblé par
     pipeline_tabulaire.build_scenario_pipeline, pas construit ici. X_train/y_train/cv sont
     passés explicitement par l'appelant (notebook) : ce module n'entraîne jamais rien lui-même
     et ne doit pas dépendre de variables globales du notebook.
+
+    Les probabilités hors-échantillon sont toujours calculées (``method="predict_proba"``) : les
+    prédictions dures en sont dérivées (argmax), et si ``couts``/``seuil_a``/``seuil_b``/``cout_revue``
+    sont fournis, le coût métier §5.2.3 (règles de validation manuelle) est ajouté aux métriques.
     """
-    
+
     features_train = prepare_tabular_features(X_train, nom_scenario)
     pipeline_scenario = build_scenario_pipeline(nom_scenario, model, densify=besoin_dense)
-	# Effectue les prédictions hors-échantillon pour chaque fold de la CV.
-    y_pred_oof = cross_val_predict(pipeline_scenario, features_train, y_train, cv=cross_validation_folds, n_jobs=-1)
-    return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
+	# Effectue les prédictions hors-échantillon (probabilités) pour chaque fold de la CV.
+    probas_oof = cross_val_predict(
+        pipeline_scenario, features_train, y_train, cv=cross_validation_folds, method="predict_proba", n_jobs=-1
+    )
+    y_pred_oof = probas_oof.argmax(axis=1)  # classes 0/1/2 triées : index de colonne = classe
+    return metrics_module.compute_classification_metrics(
+        y_train, y_pred_oof, probas=probas_oof, couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue
+    )
+
 

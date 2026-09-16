@@ -131,14 +131,33 @@ def fit_and_evaluate_text_scenario(model, X_train_prepared, X_test_prepared, y_t
     model.fit(X_train_prepared, y_train)
     return evaluate_model(model, X_test_prepared, y_test)
 
-def evaluer_scenario_texte_cv(model, besoin_dense: bool, X_train, y_train, cv) -> dict:
+def evaluer_scenario_texte_cv(
+    model,
+    besoin_dense: bool,
+    X_train,
+    y_train,
+    cv,
+    couts=None,
+    seuil_a: float | None = None,
+    seuil_b: float | None = None,
+    cout_revue: float | None = None,
+) -> dict:
     """Prédictions hors-échantillon (5-fold CV, train uniquement) pour le scénario texte S3.
 
     Le Pipeline (TF-IDF refit à chaque fold) est assemblé par pipeline_texte.build_text_pipeline.
     X_train/y_train/cv sont passés explicitement par l'appelant (notebook), ce module n'entraîne
     jamais rien lui-même et ne doit pas dépendre de variables globales du notebook.
+
+    Les probabilités hors-échantillon sont toujours calculées (``method="predict_proba"``) : les
+    prédictions dures en sont dérivées (argmax), et si ``couts``/``seuil_a``/``seuil_b``/``cout_revue``
+    sont fournis, le coût métier §5.2.3 (règles de validation manuelle) est ajouté aux métriques.
     """
     pipeline_s3 = build_text_pipeline(model, densify=besoin_dense)
-    y_pred_oof = cross_val_predict(pipeline_s3, X_train["synthese_entretien_prepare"], y_train, cv=cv, n_jobs=-1)
-    return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
+    probas_oof = cross_val_predict(
+        pipeline_s3, X_train["synthese_entretien_prepare"], y_train, cv=cv, method="predict_proba", n_jobs=-1
+    )
+    y_pred_oof = probas_oof.argmax(axis=1)  # classes 0/1/2 triées : index de colonne = classe
+    return metrics_module.compute_classification_metrics(
+        y_train, y_pred_oof, probas=probas_oof, couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue
+    )
 

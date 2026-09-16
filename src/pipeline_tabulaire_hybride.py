@@ -69,6 +69,10 @@ def evaluer_scenario_hybride_cv(
     y_train,
     cross_validation_folds,
     tabular_scenario: str = TABULAR_SCENARIO,
+    couts=None,
+    seuil_a: float | None = None,
+    seuil_b: float | None = None,
+    cout_revue: float | None = None,
 ) -> dict:
     """Prédictions hors-échantillon (5-fold CV, train uniquement) pour un scénario hybride.
 
@@ -79,11 +83,18 @@ def evaluer_scenario_hybride_cv(
 
     ``prepare_tabular_features`` dérive ``departement`` depuis ``code_insee_commune`` si besoin
     (cf. pipeline_tabulaire), avant de rattacher la colonne de texte brute.
+
+    Les probabilités hors-échantillon sont toujours calculées (``method="predict_proba"``) : les
+    prédictions dures en sont dérivées (argmax), et si ``couts``/``seuil_a``/``seuil_b``/``cout_revue``
+    sont fournis, le coût métier §5.2.3 (règles de validation manuelle) est ajouté aux métriques.
     """
     pipeline_scenario = build_hybrid_pipeline(model, densify=besoin_dense, tabular_scenario=tabular_scenario)
     features_tabulaires = pipeline_tabulaire.prepare_tabular_features(X_train, tabular_scenario)
     features_hybrides = features_tabulaires.assign(**{TEXT_COLUMN: X_train[TEXT_COLUMN]})
-    y_pred_oof = cross_val_predict(
-        pipeline_scenario, features_hybrides, y_train, cv=cross_validation_folds, n_jobs=-1
+    probas_oof = cross_val_predict(
+        pipeline_scenario, features_hybrides, y_train, cv=cross_validation_folds, method="predict_proba", n_jobs=-1
     )
-    return metrics_module.compute_classification_metrics(y_train, y_pred_oof)
+    y_pred_oof = probas_oof.argmax(axis=1)  # classes 0/1/2 triées : index de colonne = classe
+    return metrics_module.compute_classification_metrics(
+        y_train, y_pred_oof, probas=probas_oof, couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue
+    )
