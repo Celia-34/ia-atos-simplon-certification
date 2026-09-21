@@ -8,4 +8,4 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| LogisticRegression (class_weight='balanced') — évaluation finale test set | ⭐🟢 0.686 | ⭐🟢 0.666 | ⭐🟢 0.644 | ⭐🟢 0.555 | ⭐🟢 10.0 % | ⭐🟢 13.4 % |
+| HistGradientBoostingClassifier (class_weight={0:1,1:1,2:3}) — évaluation finale test set | ⭐🟢 0.718 | ⭐🟢 0.704 | ⭐🟢 0.633 | ⭐🟢 0.637 | ⭐🟢 8.9 % | ⭐🟢 4.3 % |

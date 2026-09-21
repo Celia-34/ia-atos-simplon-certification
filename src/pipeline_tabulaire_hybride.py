@@ -15,6 +15,7 @@ pour continuer à mesurer l'apport du texte par comparaison.
 """
 
 from __future__ import annotations
+from xmlrpc.client import boolean
 
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import cross_val_predict
@@ -68,7 +69,7 @@ def evaluer_scenario_hybride_cv(
     X_train,
     y_train,
     cross_validation_folds,
-    tabular_scenario: str = TABULAR_SCENARIO,
+    tabular_scenario: boolean = TABULAR_SCENARIO,
     couts=None,
     seuil_a: float | None = None,
     seuil_b: float | None = None,
@@ -97,4 +98,34 @@ def evaluer_scenario_hybride_cv(
     y_pred_oof = probas_oof.argmax(axis=1)  # classes 0/1/2 triées : index de colonne = classe
     return metrics_module.compute_classification_metrics(
         y_train, y_pred_oof, probas=probas_oof, couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue
+    )
+
+
+def evaluer_scenario_cv(
+    model,
+    besoin_dense: bool,
+    X_train,
+    y_train,
+    cross_validation_folds,
+    tabular_scenario: str = TABULAR_SCENARIO,
+    with_text: bool = True,
+    couts=None,
+    seuil_a: float | None = None,
+    seuil_b: float | None = None,
+    cout_revue: float | None = None,
+) -> dict:
+    """Évalue un scénario en CV, avec ou sans la feature texte selon ``with_text``.
+
+    ``with_text=True``  -> pipeline hybride (tabulaire + TF-IDF du texte), ex. S1.
+    ``with_text=False`` -> pipeline purement tabulaire (sans texte), ex. S4.
+    """
+    if with_text:
+        return evaluer_scenario_hybride_cv(
+            model, besoin_dense, X_train, y_train, cross_validation_folds,
+            tabular_scenario=tabular_scenario,
+            couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue,
+        )
+    return pipeline_tabulaire.evaluer_scenario_tabulaire_cv(
+        tabular_scenario, model, besoin_dense, X_train, y_train, cross_validation_folds,
+        couts=couts, seuil_a=seuil_a, seuil_b=seuil_b, cout_revue=cout_revue,
     )

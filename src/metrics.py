@@ -35,6 +35,15 @@ COST_METRIC_LABELS = {
     "cout_total": "Coût métier total (€)",
 }
 
+# Clés optionnelles d'industrialisation (§8/§9.1) : taille disque, temps de fit et latence predict
+# p50/p95, ajoutées par l'appelant (cf. §5.6.2) ; absentes des benchmarks purement métriques.
+PERF_METRIC_LABELS = {
+    "taille_mo": "Taille modèle (Mo)",
+    "temps_fit_s": "Temps de fit (s)",
+    "latence_p50_ms": "Latence predict p50 (ms)",
+    "latence_p95_ms": "Latence predict p95 (ms)",
+}
+
 
 def cout_total(y_true, y_pred, couts: pd.DataFrame) -> int:
     """Coût métier total en € : matrice de confusion (labels 0/1/2) × matrice de coûts (§5.2.1) fournie par l'appelant."""
@@ -134,14 +143,15 @@ def evaluate_model(model, X_test, y_test) -> dict:
 def metrics_to_row(scenario: str, metrics: dict, modele: str | None = None) -> dict:
     """Flatten one (scénario, modèle) pair's metrics (minus the fitted model/matrix) into a benchmark row.
 
-    Any of the optional §5.2.3 cost keys (``COST_METRIC_LABELS``) present in ``metrics`` are
-    carried over too, so callers that pass cost args to ``compute_classification_metrics`` get
-    them in the row automatically ; callers that don't are unaffected (no cost columns added).
+    Any of the optional §5.2.3 cost keys (``COST_METRIC_LABELS``) or §8/§9.1 industrialisation keys
+    (``PERF_METRIC_LABELS``) present in ``metrics`` are carried over too, so callers that add them get
+    them in the row automatically ; callers that don't are unaffected (no extra columns added).
     """
     row = {"scenario": scenario, **{key: metrics[key] for key in METRIC_LABELS}}
-    for cost_key in COST_METRIC_LABELS:
-        if cost_key in metrics:
-            row[cost_key] = metrics[cost_key]
+    for extra_labels in (COST_METRIC_LABELS, PERF_METRIC_LABELS):
+        for extra_key in extra_labels:
+            if extra_key in metrics:
+                row[extra_key] = metrics[extra_key]
     if modele is not None:
         row["modele"] = modele
     return row
@@ -160,6 +170,11 @@ HIGHER_IS_BETTER = {
     "cout_erreurs": False,
     "cout_revues": False,
     "cout_total": False,
+    # Colonnes d'industrialisation §8/§9.1 (taille, temps de fit, latence) : plus petit est meilleur.
+    "taille_mo": False,
+    "temps_fit_s": False,
+    "latence_p50_ms": False,
+    "latence_p95_ms": False,
 }
 BEST_ICON = "🟢"
 WORST_ICON = "🔴"
@@ -228,6 +243,9 @@ def write_benchmark_markdown(rows: list[dict], path: str | Path, model_label: st
         for column in ["cout_erreurs", "cout_revues", "cout_total"]:
             if column in display_df.columns:
                 display_df[column] = display_df[column].map(lambda v: f"{v:,.0f} €".replace(",", " "))
+        for column in ["taille_mo", "temps_fit_s", "latence_p50_ms", "latence_p95_ms"]:
+            if column in display_df.columns:
+                display_df[column] = display_df[column].round(3)
 
         for column in best_masks:
             is_global_best = global_best_masks[column].xs(scenario, level="scenario")
@@ -239,7 +257,7 @@ def write_benchmark_markdown(rows: list[dict], path: str | Path, model_label: st
                 )
             ]
 
-        all_labels = {**METRIC_LABELS, **COST_METRIC_LABELS}
+        all_labels = {**METRIC_LABELS, **COST_METRIC_LABELS, **PERF_METRIC_LABELS}
         headers = ["Modèle"] + [all_labels[column] for column in display_df.columns]
         header_row = "| " + " | ".join(headers) + " |"
         separator_row = "|" + "|".join(["---"] * len(headers)) + "|"
