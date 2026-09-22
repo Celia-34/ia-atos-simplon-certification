@@ -3,13 +3,18 @@
 # tous les modèles/hyperparamètres —, on mesure aussi les caractéristiques d'industrialisation (§8/§9.1) :
 # sauvegarde du pipeline complet, taille sérialisée sur disque, temps de fit, et latence d'inférence unitaire
 # p50/p95 sur N_APPELS_LATENCE appels predict.
+import json
+import sys
 import time
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 
 import joblib
 import numpy as np
+import pandas as pd
+import sklearn
 
 MODELS_DIR = Path("..") / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,6 +40,49 @@ def save(pipeline_perf, nom_scenario, nom_modele) -> tuple[float, Path]:
     joblib.dump(pipeline_perf, chemin_modele)
     taille_mo = os.path.getsize(chemin_modele) / (1024 * 1024)
     return taille_mo, chemin_modele
+
+
+def _json_safe(valeur):
+    """Convertit récursivement les types numpy/pandas/Path en équivalents sérialisables en JSON."""
+    if isinstance(valeur, np.ndarray):
+        return valeur.tolist()
+    if isinstance(valeur, (np.integer, np.floating, np.bool_)):
+        return valeur.item()
+    if isinstance(valeur, Path):
+        return str(valeur)
+    if isinstance(valeur, dict):
+        return {str(cle): _json_safe(sous_valeur) for cle, sous_valeur in valeur.items()}
+    if isinstance(valeur, (list, tuple, set)):
+        return [_json_safe(sous_valeur) for sous_valeur in valeur]
+    return valeur
+
+
+def save_metadata(chemin_modele, metadata: dict) -> Path:
+    """Écrit les métadonnées du modèle en JSON à côté du .joblib (traçabilité §0.5/§8.1).
+
+    Les informations d'environnement (date, versions, taille du fichier) sont ajoutées
+    automatiquement ; ``metadata`` porte le contexte métier fourni par l'appelant
+    (scénario, hyperparamètres, features, métriques, seuils, commit Git...).
+    """
+    chemin_modele = Path(chemin_modele)
+    chemin_metadata = chemin_modele.with_suffix(".metadata.json")
+    charge_utile = {
+        "date_persistance": datetime.now().isoformat(timespec="seconds"),
+        "chemin_modele": chemin_modele.name,
+        "taille_mo": round(os.path.getsize(chemin_modele) / (1024 * 1024), 3),
+        "versions": {
+            "python": sys.version.split()[0],
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "scikit-learn": sklearn.__version__,
+            "joblib": joblib.__version__,
+        },
+        **_json_safe(metadata),
+    }
+    chemin_metadata.write_text(
+        json.dumps(charge_utile, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return chemin_metadata
 
 
 def latence_performance(pipeline_perf, echantillon_unitaire) -> np.ndarray:
