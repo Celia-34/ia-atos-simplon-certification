@@ -6,7 +6,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Code + modèle
+# Code + modèle. Le contexte de build est `services/model/` : depuis la
+# suppression du NLP, le pipeline sérialisé n'est plus qu'un assemblage de
+# transformeurs scikit-learn standards (ColumnTransformer / OneHotEncoder /
+# SimpleImputer / RandomForest). Il ne référence plus aucun callable maison
+# (`src.pipeline_texte._to_dense` a disparu avec le TF-IDF), donc `src/` n'a
+# plus à être embarqué dans l'image.
 COPY app/ ./app/
 COPY models/ ./models/
 

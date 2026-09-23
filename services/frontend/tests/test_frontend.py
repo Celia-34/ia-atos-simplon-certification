@@ -2,7 +2,7 @@
 
 pytest n'exécute pas le JavaScript : on vérifie les CONTRATS du formulaire,
 pas son comportement dynamique.
-  - les 6 champs correspondent au schéma Pydantic UsagerFeatures ;
+  - les 7 champs correspondent au schéma Pydantic UsagerFeatures ;
   - les <select> catégoriels n'exposent que des modalités connues du modèle ;
   - l'appel API reste en chemin relatif (proxy nginx, pas de CORS).
 """
@@ -79,20 +79,38 @@ def schema():
 
 @pytest.fixture(scope="module")
 def encoder_categories() -> dict[str, set]:
-    """Modalités réellement apprises par le OneHotEncoder du pipeline."""
+    """Modalités réellement apprises par les encodeurs du pipeline.
+
+    Le préprocesseur en contient deux (OrdinalEncoder pour `niveau_diplome`,
+    OneHotEncoder pour le reste) : on les agrège tous, sinon le premier trouvé
+    masquerait les modalités de l'autre et le test ne vérifierait qu'un champ.
+    """
     pre = joblib.load(MODEL_PATH).named_steps["preprocessing"]
+    categories: dict[str, set] = {}
     for _, trans, cols in pre.transformers_:
         inner = trans.named_steps.values() if hasattr(trans, "named_steps") else [trans]
         for step in inner:
             if hasattr(step, "categories_"):
-                return {c: set(cat) for c, cat in zip(cols, step.categories_)}
-    pytest.fail("Aucun encodeur catégoriel trouvé dans le pipeline")
+                categories.update({c: set(cat) for c, cat in zip(cols, step.categories_)})
+    if not categories:
+        pytest.fail("Aucun encodeur catégoriel trouvé dans le pipeline")
+    # `nationalite_hors_ue` est consommée par le pipeline mais jamais demandée à
+    # l'usager : le service l'injecte (cf. services/model/app/main.py). Elle n'a
+    # donc rien à faire dans le formulaire.
+    categories.pop("nationalite_hors_ue", None)
+    return categories
 
 
 # --- Contrat formulaire <-> schéma Pydantic ---------------------------------
 
-def test_les_6_champs_du_schema_sont_presents(form, schema):
+def test_les_champs_du_schema_sont_presents(form, schema):
     assert set(form.fields) == set(schema.model_fields)
+
+
+def test_la_nationalite_n_est_pas_demandee(form):
+    """Choix d'architecture : la nationalité ne doit pas pouvoir influencer le
+    scoring, donc ni le formulaire ni l'API ne la collectent."""
+    assert "nationalite_hors_ue" not in form.fields
 
 
 def test_les_champs_numeriques_libres_portent_le_marqueur_de_conversion(form):

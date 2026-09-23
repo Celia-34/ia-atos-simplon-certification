@@ -22,6 +22,8 @@ VALID_PAYLOAD = {
     "code_rome_vise": "M1607",
     "est_allocataire": 1,
     "departement": "75",
+    # Synthèse d'entretien sous sa forme catégorielle (référentiel figé §4.2.2).
+    "famille_thematique": "reconversion et besoin de formation",
 }
 
 VALID_PREDICTION = {
@@ -141,6 +143,33 @@ def test_score_rejects_invalid_usager_without_calling_model(
     assert response.status_code == 422
     assert fake.post_kwargs is None
     assert total_calls_value(client) == before
+
+
+def test_score_rejects_unknown_famille_without_calling_model(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le backend valide avec le MÊME schéma que le model : une famille hors
+    référentiel doit être arrêtée ici, sans aller-retour réseau inutile."""
+    fake = install_fake_client(monkeypatch, response=httpx.Response(200, json=VALID_PREDICTION))
+    invalid_payload = {**VALID_PAYLOAD, "famille_thematique": "profil en or massif"}
+
+    response = client.post("/score", json=invalid_payload)
+
+    assert response.status_code == 422
+    assert fake.post_kwargs is None
+
+
+def test_score_ne_transmet_pas_la_nationalite_au_model(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`nationalite_hors_ue` n'est pas un champ du schéma : même envoyée par
+    l'appelant, elle ne doit jamais atteindre le service de scoring."""
+    fake = install_fake_client(monkeypatch, response=httpx.Response(200, json=VALID_PREDICTION))
+
+    response = client.post("/score", json={**VALID_PAYLOAD, "nationalite_hors_ue": 1})
+
+    assert response.status_code == 200
+    assert "nationalite_hors_ue" not in fake.post_kwargs["json"]
 
 
 def test_score_unavailable_returns_503_and_increments_metric(

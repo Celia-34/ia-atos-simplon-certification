@@ -1,23 +1,54 @@
 {
   "model_name": "emploi_retour_s1",
-  "model_version": "v1.0.0",
-  "created_at": "2026-09-13",
+  "model_version": "v2.0.0",
+  "created_at": "2026-09-22",
   "scenario": "s1",
-  "feature_columns_numeric": ["age", "anciennete_poste_ans"],
-  "feature_columns_categorical": ["niveau_diplome", "code_rome_vise", "est_allocataire", "departement"],
+  "algorithm": "RandomForestClassifier (n_estimators=300)",
+  "feature_columns_numeric": [
+    "age",
+    "anciennete_poste_ans"
+  ],
+  "feature_columns_categorical": [
+    "nationalite_hors_ue",
+    "niveau_diplome",
+    "code_rome_vise",
+    "est_allocataire",
+    "departement",
+    "famille_thematique"
+  ],
+  "feature_columns_forced": {
+    "nationalite_hors_ue": 0
+  },
   "classes": {
     "0": "retour_rapide",
     "1": "retour_standard",
     "2": "a_risque"
   },
   "metrics_holdout": {
-    "accuracy": 0.652,
-    "f1_macro": 0.626,
-    "recall_classe_2": 0.489,
-    "f1_classe_2": 0.503,
-    "taux_erreur_grave_2_vers_0": 0.078,
-    "taux_erreur_0_vers_2": 0.027
+    "accuracy": 0.702,
+    "f1_macro": 0.6737,
+    "recall_classe_2": 0.5222,
+    "f1_classe_2": 0.5497,
+    "taux_erreur_grave_2_vers_0": 0.1222,
+    "taux_erreur_0_vers_2": 0.0374
   },
-  "sklearn_version": "1.9.0",
+  "metrics_holdout_notebook": {
+    "accuracy": 0.714,
+    "f1_macro": 0.6899,
+    "recall_classe_2": 0.5889,
+    "f1_classe_2": 0.5699,
+    "taux_erreur_grave_2_vers_0": 0.1,
+    "taux_erreur_0_vers_2": 0.0481
+  },
+  "metrics_note": "metrics_holdout mesure le modèle tel qu'il est servi, nationalite_hors_ue forcée à 0 ; metrics_holdout_notebook conserve la mesure §6.1 avec la nationalité réelle.",
+  "regles_validation_manuelle": {
+    "seuil_a": 0.4,
+    "seuil_b": 0.2,
+    "cout_revue_manuelle_eur": 20
+  },
+  "source_model": "modele_final_s1_RandomForestClassifier__n_estimators_300_.joblib",
+  "trained_at": "2026-09-22T20:29:14",
+  "sklearn_version": "1.9.1",
+  "git_commit": "2d18625",
   "dataset_sha256": null
 }

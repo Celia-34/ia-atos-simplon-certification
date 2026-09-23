@@ -1,0 +1,7 @@
+# Contexte de build du service `frontend` (= ce dossier).
+# Seuls nginx.conf et html/ sont copiés ; les tests restent hors image.
+tests/
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.md

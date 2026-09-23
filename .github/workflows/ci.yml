@@ -7,27 +7,53 @@ on:
   pull_request:
     branches: [main]
 
+# Aucune étape de la CI ne contacte HuggingFace : depuis la suppression du NLP
+# (phases 0-2), le texte est une variable catégorielle `famille_thematique`
+# issue du référentiel figé `data/referentiel_familles.csv`. Plus de
+# téléchargement de poids, plus de warm-up de modèle, plus de cache HF.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test: # Vérifie qu'il n'y a pas de régressions dans le code via les tests unitaires
+  test:
+    # Une suite par service + la suite racine (boucle de feedback / réentraînement).
+    # Elles tournent dans des jobs distincts : chaque service expose un package
+    # nommé `app`, les collecter dans un même processus pytest casse les imports.
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: model
+            path: services/model/tests
+            requirements: services/model/requirements.txt
+          - suite: backend
+            path: services/backend/tests
+            requirements: services/backend/requirements.txt
+          - suite: frontend
+            path: services/frontend/tests
+            # La suite frontend charge le modèle servi pour vérifier que les
+            # modalités du formulaire correspondent aux catégories apprises.
+            requirements: services/model/requirements.txt
+          - suite: racine
+            path: tests
+            requirements: requirements.txt
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps
+          cache: pip
+          cache-dependency-path: ${{ matrix.requirements }}
+      - name: Installation des dépendances
         run: |
-          pip install -r services/model/requirements.txt pytest httpx
-          pip install -r services/backend/requirements.txt pytest httpx
-      - name: Tests unitaires model + contract test du modèle
-        run: |
-          pytest -v services/model/tests
-      - name: Tests unitaires backend
-        run: |
-          pytest -v services/backend/tests
-      - name: Tests unitaires frontend
-        run: |
-          pytest -v services/frontend/tests
+          python -m pip install --upgrade pip
+          pip install -r ${{ matrix.requirements }}
+          pip install pytest httpx
+      - name: Tests ${{ matrix.suite }}
+        run: pytest -v ${{ matrix.path }}
 
   build-and-push:
     needs: test
@@ -37,16 +63,27 @@ jobs:
     strategy:
       max-parallel: 1 # Un seul push à la fois
       matrix:
-        service: [model, backend, frontend]
+        service: [model, backend, feedback, frontend]
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: |
+      - name: Nom d'image et tag
+        id: meta
+        run: |
           IMG="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')-${{ matrix.service }}"
-          TAG="${GITHUB_REF_NAME//\//-}"
-          docker build -t "$IMG:$TAG" ./services/${{ matrix.service }}
-          docker push "$IMG:$TAG"
+          echo "image=$IMG" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+      # Les quatre services se buildent désormais depuis leur propre dossier :
+      # `model` n'a plus besoin du contexte racine (plus de `COPY src/`).
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./services/${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

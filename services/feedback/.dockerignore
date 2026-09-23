@@ -1,0 +1,9 @@
+# Contexte de build du service `feedback` (= ce dossier).
+# data/ et scripts/ sont montés par le compose, jamais copiés dans l'image.
+tests/
+logs/
+**/logs
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.md

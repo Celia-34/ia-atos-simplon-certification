@@ -138,6 +138,31 @@
       </select>
     </fieldset>
 
+    <fieldset>
+      <legend>Synthèse d'entretien</legend>
+
+      <!-- La synthèse n'est PAS saisie en texte libre : depuis la phase 2 elle se
+           réduit à 9 familles thématiques figées (data/referentiel_familles.csv),
+           traitées comme une variable catégorielle par le modèle. Un <select>
+           fermé est donc le bon contrôle de saisie — et le seul garde-fou contre
+           une modalité inconnue, que le OneHotEncoder (handle_unknown="ignore")
+           encoderait silencieusement en vecteur nul. -->
+      <label for="famille_thematique">Situation dominante relevée en entretien</label>
+      <select id="famille_thematique" name="famille_thematique" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="profil autonome sans aucun frein">Profil autonome, aucun frein identifié</option>
+        <option value="dynamisme et clarté du projet professionnel">Dynamisme et clarté du projet professionnel</option>
+        <option value="compétences techniques à jour et reprise rapide">Compétences techniques à jour, reprise rapide visée</option>
+        <option value="réactualisation des compétences sur les outils numériques">Compétences à réactualiser sur les outils numériques</option>
+        <option value="reconversion et besoin de formation">Reconversion à affiner, besoin de formation</option>
+        <option value="mobilité géographique et zone mal desservie">Mobilité géographique, zone mal desservie</option>
+        <option value="garde d'enfants et absence de moyen de transport">Garde d'enfants et absence de moyen de transport</option>
+        <option value="perte de confiance et barrière de la langue">Perte de confiance, barrière de la langue</option>
+        <option value="freins périphériques et illettrisme numérique">Freins périphériques, illettrisme numérique</option>
+        <option value="texte_manquant">Aucune synthèse saisie</option>
+      </select>
+    </fieldset>
+
     <button type="submit">Évaluer le risque</button>
     <button type="button" id="fillExample">Remplir un exemple</button>
   </form>
@@ -236,6 +261,7 @@
       const example = {
         age: 35, anciennete_poste_ans: 3.5, niveau_diplome: 'Bac+2',
         est_allocataire: '1', code_rome_vise: 'M1607', departement: '75',
+        famille_thematique: 'reconversion et besoin de formation',
       };
       for (const [name, value] of Object.entries(example)) {
         const field = form.elements[name];

@@ -1,5 +1,7 @@
 services:
   model:
+    # Contexte = services/model/ : l'image n'a plus besoin de src/ (aucun
+    # transformeur maison dans le pipeline sérialisé depuis la suppression du NLP).
     build: ./services/model
     ports:
       - "8000:8000"
@@ -8,6 +10,24 @@ services:
       interval: 10s
       timeout: 3s
       start_period: 20s
+      retries: 3
+
+  feedback:
+    build: ./services/feedback
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts:ro
+    environment:
+      DATA_DIR: /data
+      SCRIPTS_DIR: /scripts
+      FEEDBACK_DB: /data/feedbacks.db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
       retries: 3
 
   backend:
@@ -40,3 +60,27 @@ services:
       timeout: 3s
       start_period: 20s
       retries: 3
+
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # Aucun depends_on sur model/backend : Prometheus gere nativement les cibles
+    # injoignables (metrique `up` a 0). Faire dependre la supervision de la sante
+    # des services observes rendrait le panel UP/DOWN incapable d'afficher DOWN.
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    ports:
+      - "3001:3000"            # 3001 hôte : évite le conflit 3000
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus

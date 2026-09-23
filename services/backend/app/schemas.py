@@ -3,12 +3,35 @@
 Dupliqué à l'identique du schéma du service `model` : le backend valide
 l'entrée **avant** d'appeler le service model upstream (fail fast, pas
 d'appel réseau inutile sur une saisie invalide).
+
+La duplication est assumée : le backend est bâti depuis `services/backend/`
+seul, sans accès à `src/` ni au package `app` du service model. Toute
+modification ici doit être répercutée dans
+`services/model/app/schemas.py` — `services/frontend/tests/test_frontend.py`
+vérifie que le formulaire reste aligné sur ce fichier.
 """
 from __future__ import annotations
 
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# 9 familles thématiques du référentiel figé (`data/referentiel_familles.csv`,
+# §4.2.2) + `texte_manquant`. Depuis la phase 2, la synthèse d'entretien est une
+# variable catégorielle et non du texte libre : un Literal fermé est donc le bon
+# contrat d'entrée.
+FamilleThematique = Literal[
+    "compétences techniques à jour et reprise rapide",
+    "dynamisme et clarté du projet professionnel",
+    "freins périphériques et illettrisme numérique",
+    "garde d'enfants et absence de moyen de transport",
+    "mobilité géographique et zone mal desservie",
+    "perte de confiance et barrière de la langue",
+    "profil autonome sans aucun frein",
+    "reconversion et besoin de formation",
+    "réactualisation des compétences sur les outils numériques",
+    "texte_manquant",
+]
 
 
 class UsagerFeatures(BaseModel):
@@ -35,6 +58,14 @@ class UsagerFeatures(BaseModel):
         ...,
         pattern=r"^(\d{2}|2A|2B)$",
         description="Code département de résidence (2 caractères, ex. '75', '2A')",
+    )
+    famille_thematique: FamilleThematique = Field(
+        ...,
+        description=(
+            "Famille thématique de la synthèse d'entretien : le frein ou l'atout "
+            "principal identifié par le conseiller. 'texte_manquant' si aucune "
+            "synthèse n'a été saisie."
+        ),
     )
 
 

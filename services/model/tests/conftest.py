@@ -28,7 +28,12 @@ def client():
 
 @pytest.fixture
 def valid_payload() -> dict:
-    """Un usager valide aligné sur UsagerFeatures (scénario s1)."""
+    """Un usager valide aligné sur UsagerFeatures (scénario s1).
+
+    `famille_thematique` est une modalité du référentiel figé (§4.2.2) :
+    depuis la phase 2 la synthèse d'entretien est catégorielle, pas du texte.
+    `nationalite_hors_ue` n'y figure pas : le service l'injecte lui-même.
+    """
     return {
         "age": 35,
         "anciennete_poste_ans": 3.5,
@@ -36,4 +41,5 @@ def valid_payload() -> dict:
         "code_rome_vise": "M1607",
         "est_allocataire": 1,
         "departement": "75",
+        "famille_thematique": "reconversion et besoin de formation",
     }

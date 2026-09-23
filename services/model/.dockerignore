@@ -1,0 +1,9 @@
+# Contexte de build du service `model` (= ce dossier).
+# L'image n'embarque que app/ + models/emploi_retour_s1.{joblib,json}.
+tests/
+logs/
+**/logs
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.md
