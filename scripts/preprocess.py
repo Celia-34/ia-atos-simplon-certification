@@ -9,7 +9,7 @@ tous sur exactement les mêmes lignes et les mêmes colonnes :
   ``famille_thematique`` via le référentiel figé (§4.2.2) ;
 - §4.1 : split 80/20 stratifié (``random_state=42``) → train / holdout ;
 - §6.1 : scénario retenu ``s1`` (tabulaire + famille thématique) et modèle retenu
-  ``RandomForestClassifier(n_estimators=300)``.
+  ``RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42)``.
 
 Le holdout (500 lignes, jamais vu à l'entraînement) est la seule réserve
 disponible ; il est partagé en **jeu de référence figé** (350 lignes, évaluation
@@ -48,15 +48,6 @@ FEATURES = list(pipeline_tabulaire.get_scenario_features(TABULAR_SCENARIO))
 RANDOM_STATE = 42
 HOLDOUT_SIZE = 0.20
 N_REFERENCE = 350
-
-# `nationalite_hors_ue` fait partie des features du scénario s1, mais n'est
-# jamais demandée à l'appelant : le service model l'écrase par cette constante
-# avant l'inférence (cf. `services/model/app/main.py`), pour qu'aucun usager ne
-# soit traité différemment selon sa nationalité. Toute évaluation qui prétend
-# décrire le modèle **servi** doit reproduire ce forçage — sinon la boucle de
-# promotion arbitrerait sur des métriques que la production n'atteint jamais.
-NATIONALITE_COLUMN = "nationalite_hors_ue"
-NATIONALITE_HORS_UE_NEUTRE = 0
 
 # Métriques §1.4 suivies par la boucle. La matrice de confusion et le modèle
 # renvoyés par src.metrics sont volontairement écartés : ils ne sont pas
@@ -150,27 +141,15 @@ def build_features(data: pd.DataFrame) -> pd.DataFrame:
     return pipeline_tabulaire.prepare_tabular_features(data, TABULAR_SCENARIO)
 
 
-def build_served_features(data: pd.DataFrame) -> pd.DataFrame:
-    """Features telles que le service les présente au modèle.
-
-    Identique à ``build_features``, à ceci près que ``nationalite_hors_ue`` est
-    écrasée par ``NATIONALITE_HORS_UE_NEUTRE``. C'est cette fonction — et non
-    ``build_features`` — qu'il faut utiliser pour mesurer une performance
-    comparable à celle observée en production.
-    """
-    features = build_features(data)
-    if NATIONALITE_COLUMN in features.columns:
-        features = features.assign(**{NATIONALITE_COLUMN: NATIONALITE_HORS_UE_NEUTRE})
-    return features
-
-
 def evaluate(model, data: pd.DataFrame) -> dict[str, float]:
     """Métriques §1.4 suivies par la boucle, sur un jeu déjà préparé.
 
-    Évalué dans les conditions de service (nationalité neutralisée) : candidat et
-    modèle de production sont ainsi comparés sur exactement ce qu'ils verront.
+    Évalué sur les features du scénario s1 **telles quelles**, nationalité
+    réelle comprise : c'est exactement ce que le service reçoit depuis
+    l'alignement `v3.0.0`. Candidat et modèle de production sont donc comparés
+    sur la même définition de « ce que voit le modèle » que le notebook.
     """
-    predictions = model.predict(build_served_features(data))
+    predictions = model.predict(build_features(data))
     computed = metrics_module.compute_classification_metrics(
         data[TARGET_COLUMN], predictions
     )
@@ -180,17 +159,27 @@ def evaluate(model, data: pd.DataFrame) -> dict[str, float]:
 def build_pipeline() -> Pipeline:
     """Assemble le pipeline du modèle retenu en §6.1, non entraîné.
 
-    ``RandomForestClassifier(n_estimators=300)`` : avec la représentation one-hot
-    de ``famille_thematique``, il domine les deux variantes de
-    ``HistGradientBoostingClassifier`` sur toutes les métriques §1.4 de la
-    sous-validation (cf. `comparaison_finalistes.md`). Le candidat du retrain
-    DOIT être de la même famille que le modèle servi, sinon la décision de
-    promotion compare deux algorithmes plutôt que deux jeux de données.
+    ``RandomForestClassifier(n_estimators=300, class_weight="balanced")`` : avec
+    la représentation one-hot de ``famille_thematique``, il domine les deux
+    variantes de ``HistGradientBoostingClassifier`` sur toutes les métriques
+    §1.4 de la sous-validation (cf. `comparaison_finalistes.md`). Le candidat du
+    retrain DOIT être de la même famille **et de la même configuration** que le
+    modèle servi, sinon la décision de promotion compare deux algorithmes ou
+    deux réglages plutôt que deux jeux de données.
+
+    ``class_weight="balanced"`` est porté par la lambda de
+    ``MODELES_FINALISTES`` (cellule 134) mais absent du descripteur textuel
+    ``"n_estimators=300"`` qui s'est propagé dans les livrables : c'est par là
+    que le paramètre avait disparu de cette fonction. Le test de configuration
+    (`tests/test_boucle.py`) compare désormais ces paramètres à ceux du modèle
+    réellement chargé depuis ``emploi_retour_s1.joblib``.
 
     ``densify=False`` : RandomForest accepte la matrice creuse produite par les
     OneHotEncoder du préprocesseur, contrairement à HistGradientBoosting.
     """
-    model = RandomForestClassifier(n_estimators=300, random_state=RANDOM_STATE)
+    model = RandomForestClassifier(
+        n_estimators=300, class_weight="balanced", random_state=RANDOM_STATE
+    )
     return pipeline_tabulaire.build_scenario_pipeline(
         TABULAR_SCENARIO, model, densify=False
     )

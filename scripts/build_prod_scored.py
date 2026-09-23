@@ -35,7 +35,6 @@ from preprocess import (  # noqa: E402
     FEATURES,
     TARGET_COLUMN,
     build_features,
-    build_served_features,
     load_dataset,
     split_holdout,
     split_train_holdout,
@@ -69,12 +68,11 @@ def main() -> int:
     model = joblib.load(PRODUCTION_PATH)
     metadata = json.loads(PRODUCTION_META_PATH.read_text(encoding="utf-8"))
     features = build_features(production_slice)
-    # Scoré dans les conditions de service : `nationalite_hors_ue` neutralisée,
-    # comme le fait `services/model/app/main.py`. Sans cela le journal
-    # contiendrait des prédictions que l'API n'aurait jamais produites.
-    features_servies = build_served_features(production_slice)
-    predictions = model.predict(features_servies)
-    probabilities = model.predict_proba(features_servies)
+    # Scoré dans les conditions de service : depuis l'alignement `v3.0.0` le
+    # service reçoit `nationalite_hors_ue` de l'appelant et ne la réécrit pas.
+    # Le journal porte donc exactement les features vues par l'API.
+    predictions = model.predict(features)
+    probabilities = model.predict_proba(features)
 
     # `departement` (dérivé de `code_insee_commune`) et `famille_thematique` (dérivée du
     # texte via le référentiel figé) n'existent que dans les features : le journal doit

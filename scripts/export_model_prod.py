@@ -11,14 +11,12 @@ script plutôt que d'un simple ``copy`` :
 1. **``famille_thematique`` est désormais une colonne catégorielle** (§4.2.2) et
    non plus du texte libre : elle figure donc dans
    ``feature_columns_categorical`` et devient un champ d'entrée de l'API.
-2. **``nationalite_hors_ue`` est neutralisée en production.** Le pipeline retenu
-   la consomme (cf. ``SCENARIO_FEATURES["s1"]``), mais l'API ne la demande pas :
-   le service injecte une valeur constante (``NATIONALITE_HORS_UE_NEUTRE``) avant
-   l'inférence, si bien qu'aucun usager n'est traité différemment selon sa
-   nationalité. Les métriques écrites dans ``metrics_holdout`` sont recalculées
-   **avec ce forçage**, pour décrire le modèle réellement servi et non celui du
-   notebook. Les métriques du notebook sont conservées sous
-   ``metrics_holdout_notebook`` pour rendre l'écart mesurable.
+2. **``nationalite_hors_ue`` est une feature d'entrée à part entière.**
+   L'arbitrage métier et juridique ``J0`` a validé son usage : le service la
+   reçoit de l'appelant et ne la réécrit plus. Il n'existe donc qu'**un seul
+   jeu de métriques**, celui du notebook (§5.6.2 / §6.1 / §7.1 / §7.2), et
+   ``metrics_holdout`` doit être strictement égal à ``evaluation_finale.md``
+   et à ``models/modele_final_s1_*.metadata.json::metriques_test``.
 
 Usage::
 
@@ -39,12 +37,9 @@ import sklearn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from preprocess import (  # noqa: E402
-    NATIONALITE_COLUMN,
-    NATIONALITE_HORS_UE_NEUTRE,
     ROOT,
     TARGET_COLUMN,
     build_features,
-    build_served_features,
     load_dataset,
     split_train_holdout,
 )
@@ -52,7 +47,8 @@ from src import metrics as metrics_module  # noqa: E402
 from src import pipeline_tabulaire  # noqa: E402
 
 # Modèle retenu en §5.6/§6.1 et évalué une seule fois sur le test set
-# (cf. evaluation_finale.md) : S1 / RandomForestClassifier(n_estimators=300).
+# (cf. evaluation_finale.md) : S1 / RandomForestClassifier(n_estimators=300,
+# class_weight="balanced", random_state=42).
 SOURCE_MODEL_PATH = (
     ROOT / "models" / "modele_final_s1_RandomForestClassifier__n_estimators_300_.joblib"
 )
@@ -63,7 +59,17 @@ SERVED_MODEL_PATH = SERVED_DIR / "emploi_retour_s1.joblib"
 SERVED_META_PATH = SERVED_DIR / "emploi_retour_s1.json"
 
 MODEL_NAME = "emploi_retour_s1"
-MODEL_VERSION = "v2.0.0"  # majeure : le contrat d'entrée de /predict change.
+# Majeure : `nationalite_hors_ue` redevient un champ requis de /predict — le
+# contrat d'entrée passe de 7 à 8 champs, un client v2.0.0 reçoit désormais 422.
+MODEL_VERSION = "v3.0.0"
+
+# Paramètres du classifieur dont le descripteur textuel doit rendre compte.
+# `class_weight="balanced"` était porté par la lambda de `MODELES_FINALISTES`
+# mais absent du descripteur `"n_estimators=300"` propagé dans les livrables
+# (#13) : on le relit sur l'estimateur réellement entraîné plutôt que de le
+# recopier, pour que le fichier servi ne puisse plus mentir sur sa propre
+# configuration.
+ALGORITHM_PARAMS = ("n_estimators", "class_weight", "random_state")
 
 CLASSES = {
     "0": "retour_rapide",
@@ -90,15 +96,25 @@ def git_commit() -> str | None:
         return None
 
 
-def holdout_metrics(model, holdout, *, neutraliser_nationalite: bool) -> dict[str, float]:
+def describe_algorithm(model) -> str:
+    """Descripteur exact du classifieur final, relu sur l'estimateur entraîné."""
+    estimator = model.named_steps["model"] if hasattr(model, "named_steps") else model
+    params = estimator.get_params()
+    rendered = ", ".join(
+        f"{name}={params[name]!r}" for name in ALGORITHM_PARAMS if name in params
+    )
+    return f"{type(estimator).__name__}({rendered})"
+
+
+def holdout_metrics(model, holdout) -> dict[str, float]:
     """Métriques §1.4 sur le holdout §4.1 (500 lignes jamais vues à l'entraînement).
 
-    ``neutraliser_nationalite`` reproduit le comportement du service : la colonne
-    est écrasée par ``NATIONALITE_HORS_UE_NEUTRE`` avant l'appel à ``predict``.
+    Calculées sur ``build_features``, donc avec la nationalité réelle : le
+    service n'applique plus aucune transformation entre le payload et le
+    pipeline, ces chiffres sont ceux du modèle servi **et** ceux du notebook.
     """
-    prepare = build_served_features if neutraliser_nationalite else build_features
     computed = metrics_module.compute_classification_metrics(
-        holdout[TARGET_COLUMN].astype(int), model.predict(prepare(holdout))
+        holdout[TARGET_COLUMN].astype(int), model.predict(build_features(holdout))
     )
     return {name: round(float(computed[name]), 4) for name in REPORTED_METRICS}
 
@@ -113,8 +129,7 @@ def main() -> int:
     model = joblib.load(SOURCE_MODEL_PATH)
 
     _, holdout = split_train_holdout(load_dataset())
-    metrics_servies = holdout_metrics(model, holdout, neutraliser_nationalite=True)
-    metrics_notebook = holdout_metrics(model, holdout, neutraliser_nationalite=False)
+    metrics_holdout = holdout_metrics(model, holdout)
 
     features = list(pipeline_tabulaire.get_scenario_features("s1"))
     numeriques = [f for f in features if f in pipeline_tabulaire.NUMERIC_FEATURES]
@@ -125,20 +140,11 @@ def main() -> int:
         "model_version": MODEL_VERSION,
         "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "scenario": "s1",
-        "algorithm": source_meta["modele"],
+        "algorithm": describe_algorithm(model),
         "feature_columns_numeric": numeriques,
         "feature_columns_categorical": categorielles,
-        # Colonnes attendues par le pipeline mais NON demandées à l'appelant :
-        # le service les injecte lui-même (cf. app.schemas / app.main).
-        "feature_columns_forced": {NATIONALITE_COLUMN: NATIONALITE_HORS_UE_NEUTRE},
         "classes": CLASSES,
-        "metrics_holdout": metrics_servies,
-        "metrics_holdout_notebook": metrics_notebook,
-        "metrics_note": (
-            "metrics_holdout mesure le modèle tel qu'il est servi, "
-            f"{NATIONALITE_COLUMN} forcée à {NATIONALITE_HORS_UE_NEUTRE} ; "
-            "metrics_holdout_notebook conserve la mesure §6.1 avec la nationalité réelle."
-        ),
+        "metrics_holdout": metrics_holdout,
         "regles_validation_manuelle": source_meta["regles_validation_manuelle"],
         "source_model": SOURCE_MODEL_PATH.name,
         "trained_at": source_meta["date_persistance"],
@@ -155,10 +161,26 @@ def main() -> int:
 
     print(f"{SOURCE_MODEL_PATH.name} → {SERVED_MODEL_PATH}")
     print(f"Métadonnées → {SERVED_META_PATH}")
-    print(f"\nMétriques holdout (servies, {NATIONALITE_COLUMN}={NATIONALITE_HORS_UE_NEUTRE}) :")
-    for name, value in metrics_servies.items():
-        ecart = value - metrics_notebook[name]
-        print(f"  {name:28s} = {value:.4f}   (notebook {metrics_notebook[name]:.4f}, Δ {ecart:+.4f})")
+    print(f"Algorithme  : {metadata['algorithm']}")
+    print(f"Version     : {MODEL_VERSION}")
+
+    # Concordance avec la source de vérité (#14) : l'export échoue plutôt que de
+    # produire un troisième jeu de chiffres sur « le modèle final ».
+    reference = source_meta["metriques_test"]
+    ecarts = {
+        name: (value, round(float(reference[name]), 4))
+        for name, value in metrics_holdout.items()
+        if name in reference and value != round(float(reference[name]), 4)
+    }
+    print("\nMétriques holdout (nationalité réelle) :")
+    for name, value in metrics_holdout.items():
+        print(f"  {name:28s} = {value:.4f}")
+    if ecarts:
+        raise SystemExit(
+            "Divergence avec "
+            f"{SOURCE_META_PATH.name}::metriques_test : {ecarts}"
+        )
+    print(f"\nConcordance vérifiée avec {SOURCE_META_PATH.name}::metriques_test.")
     return 0
 
 

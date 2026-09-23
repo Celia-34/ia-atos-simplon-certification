@@ -33,7 +33,6 @@ from preprocess import (  # noqa: E402
     TEXT_COLUMN,
     build_features,
     build_pipeline,
-    build_served_features,
     evaluate,
     load_dataset,
     load_prepared_csv,
@@ -96,11 +95,11 @@ def validate_candidate(model) -> None:
     """Garde-fou technique avant toute comparaison de métriques.
 
     Le candidat doit accepter les features **telles que le service les
-    présente** (nationalité neutralisée) : un candidat qui ne passerait que sur
-    les features brutes serait impromouvable.
+    présente** — c'est-à-dire les 8 colonnes du scénario s1, nationalité réelle
+    comprise depuis l'alignement `v3.0.0`.
     """
     reference = load_prepared_csv(REFERENCE_PATH)
-    probabilities = model.predict_proba(build_served_features(reference))
+    probabilities = model.predict_proba(build_features(reference))
     if not ((probabilities >= 0).all() and (probabilities <= 1).all()):
         raise ValueError("Probabilités du candidat hors de [0, 1]")
     if set(model.classes_) != {0, 1, 2}:
