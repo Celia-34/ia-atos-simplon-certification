@@ -11,6 +11,9 @@
     button { padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
     #result { margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none; }
     .rapide { background: #e6f4ea; } .standard { background: #fff4e5; } .risque { background: #fce8e6; }
+    fieldset.sensible { border-color: #b26a00; background: #fffaf2; }
+    fieldset.sensible legend { color: #8a5200; font-weight: 600; }
+    .mention { font-size: .8rem; line-height: 1.4; margin: .2rem 0 .8rem; }
   </style>
 </head>
 <body>
@@ -163,6 +166,34 @@
       </select>
     </fieldset>
 
+    <!-- Donnée sensible : fieldset distinct, jamais noyée dans le profil général.
+         L'arbitrage métier et juridique J0 autorise sa collecte au titre de
+         l'art. 6.1.e RGPD (mission d'intérêt public), à la seule fin de
+         prioriser vers un accompagnement renforcé. La condition C7 impose
+         l'information des personnes concernées (art. 13-14 RGPD) : la mention
+         ci-dessous est cette information, et elle doit rester visible à l'écran
+         — pas repliée derrière une infobulle. -->
+    <fieldset class="sensible">
+      <legend>Donnée sensible — information obligatoire</legend>
+
+      <p class="mention">
+        Cette information est recueillie <strong>uniquement</strong> pour mieux
+        détecter les personnes les plus exposées au chômage de longue durée et
+        leur proposer un accompagnement renforcé. Elle
+        <strong>ne peut en aucun cas</strong> fonder un refus, un contrôle, une
+        sanction ou une radiation. Base légale : article 6.1.e du RGPD (mission
+        d'intérêt public). L'usager doit être informé de cette collecte et de sa
+        finalité, et dispose d'un droit d'accès et de rectification.
+      </p>
+
+      <label for="nationalite_hors_ue">Nationalité hors Union européenne</label>
+      <select id="nationalite_hors_ue" name="nationalite_hors_ue" data-type="number" required>
+        <option value="" disabled selected>— Sélectionner —</option>
+        <option value="0">Ressortissant de l'Union européenne</option>
+        <option value="1">Ressortissant hors Union européenne</option>
+      </select>
+    </fieldset>
+
     <button type="submit">Évaluer le risque</button>
     <button type="button" id="fillExample">Remplir un exemple</button>
   </form>
@@ -262,6 +293,7 @@
         age: 35, anciennete_poste_ans: 3.5, niveau_diplome: 'Bac+2',
         est_allocataire: '1', code_rome_vise: 'M1607', departement: '75',
         famille_thematique: 'reconversion et besoin de formation',
+        nationalite_hors_ue: '0',
       };
       for (const [name, value] of Object.entries(example)) {
         const field = form.elements[name];

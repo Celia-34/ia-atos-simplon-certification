@@ -24,6 +24,8 @@ VALID_PAYLOAD = {
     "departement": "75",
     # Synthèse d'entretien sous sa forme catégorielle (référentiel figé §4.2.2).
     "famille_thematique": "reconversion et besoin de formation",
+    # Feature d'entrée à part entière depuis l'alignement v3.0.0 (arbitrage J0).
+    "nationalite_hors_ue": 0,
 }
 
 VALID_PREDICTION = {
@@ -159,17 +161,36 @@ def test_score_rejects_unknown_famille_without_calling_model(
     assert fake.post_kwargs is None
 
 
-def test_score_ne_transmet_pas_la_nationalite_au_model(
+def test_score_transmet_la_nationalite_au_model(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`nationalite_hors_ue` n'est pas un champ du schéma : même envoyée par
-    l'appelant, elle ne doit jamais atteindre le service de scoring."""
+    """Miroir du test supprimé en A2.4.
+
+    `nationalite_hors_ue` est un champ du schéma depuis `v3.0.0` : le backend
+    doit le relayer tel quel au service de scoring. Un backend qui le filtrerait
+    rétablirait de facto la neutralisation de la phase 4, sans que le service
+    model puisse s'en apercevoir.
+    """
     fake = install_fake_client(monkeypatch, response=httpx.Response(200, json=VALID_PREDICTION))
 
     response = client.post("/score", json={**VALID_PAYLOAD, "nationalite_hors_ue": 1})
 
     assert response.status_code == 200
-    assert "nationalite_hors_ue" not in fake.post_kwargs["json"]
+    assert fake.post_kwargs["json"]["nationalite_hors_ue"] == 1
+
+
+def test_score_exige_la_nationalite_sans_appeler_le_model(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail fast : un client resté au contrat `v2.0.0` (7 champs) est arrêté au
+    backend, sans aller-retour réseau."""
+    fake = install_fake_client(monkeypatch, response=httpx.Response(200, json=VALID_PREDICTION))
+    payload_v2 = {k: v for k, v in VALID_PAYLOAD.items() if k != "nationalite_hors_ue"}
+
+    response = client.post("/score", json=payload_v2)
+
+    assert response.status_code == 422
+    assert fake.post_kwargs is None
 
 
 def test_score_unavailable_returns_503_and_increments_metric(

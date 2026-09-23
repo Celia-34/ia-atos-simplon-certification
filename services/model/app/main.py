@@ -1,7 +1,8 @@
 """Service `model` — API de scoring du risque de retour à l'emploi (scénario s1).
 
 Charge le pipeline scikit-learn entraîné (`ColumnTransformer` +
-`RandomForestClassifier(n_estimators=300)`, modèle retenu en §6.1) et l'expose
+`RandomForestClassifier(n_estimators=300, class_weight="balanced",
+random_state=42)`, modèle retenu en §6.1) et l'expose
 via `/health`, `/info`, `/predict`, `/metrics` (Prometheus). Service **interne** :
 il est appelé par le `backend`, jamais directement par le navigateur — donc pas
 de CORS ici.
@@ -93,7 +94,6 @@ async def info() -> InfoResponse:
         scenario=meta.get("scenario"),
         feature_columns_numeric=meta.get("feature_columns_numeric", []),
         feature_columns_categorical=meta.get("feature_columns_categorical", []),
-        feature_columns_forced=meta.get("feature_columns_forced", {}),
         metrics_holdout=meta["metrics_holdout"],
         sklearn_version=meta.get("sklearn_version"),
         dataset_sha256=meta.get("dataset_sha256"),
@@ -105,14 +105,11 @@ async def predict(usager: UsagerFeatures, request: Request) -> Prediction:
     """Prédit la classe de retour à l'emploi (0 = rapide, 1 = standard, 2 = à risque)."""
     request_id = getattr(request.state, "request_id", "n/a")
     try:
+        # Les 8 champs du schéma sont exactement les 8 features du scénario s1 :
+        # aucune colonne n'est ajoutée, retirée ou réécrite entre le payload et
+        # le pipeline. C'est ce qui rend les métriques de `/info` opposables et
+        # l'audit d'équité §7.2 rejouable sur données de production.
         X = pd.DataFrame([usager.model_dump()])
-        # Le pipeline consomme `nationalite_hors_ue`, l'API ne la demande pas :
-        # on injecte la même valeur pour tout le monde (cf. app.schemas). La
-        # feature devient constante, donc sans effet différenciant — au prix
-        # d'un léger recul des métriques, chiffré dans `metrics_holdout` vs
-        # `metrics_holdout_notebook` du fichier de métadonnées.
-        for column, value in app.state.metadata.get("feature_columns_forced", {}).items():
-            X[column] = value
         pred = int(app.state.model.predict(X)[0])
         proba = float(app.state.model.predict_proba(X)[0, pred])
     except Exception as exc:  # noqa: BLE001 — garde large en production

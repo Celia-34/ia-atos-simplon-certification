@@ -44,8 +44,21 @@ def test_info_expose_le_scenario_et_les_features(client):
     body = client.get("/info").json()
     assert body["scenario"] == "s1"
     assert "famille_thematique" in body["feature_columns_categorical"]
-    # Écart assumé schéma ↔ modèle : la nationalité est injectée, pas demandée.
-    assert body["feature_columns_forced"] == {"nationalite_hors_ue": 0}
+    # Plus aucun écart schéma ↔ modèle : les features annoncées sont celles
+    # demandées à l'appelant, et rien n'est injecté côté serveur.
+    assert "feature_columns_forced" not in body
+
+
+def test_info_ne_declare_plus_de_colonne_forcee():
+    """Garde-fou anti-retour en arrière : la neutralisation serveur de
+    `nationalite_hors_ue` rendait l'audit d'équité §7.2 irréalisable sur
+    données de production (#3) et faisait diverger les métriques annoncées de
+    celles du notebook (#14). Le fichier de métadonnées ne doit plus porter
+    aucune trace de ce mécanisme."""
+    meta = _metadata()
+    assert "feature_columns_forced" not in meta
+    assert "metrics_holdout_notebook" not in meta
+    assert "metrics_note" not in meta
 
 
 def test_predict_valid_returns_class_and_proba(client, valid_payload):
@@ -79,16 +92,55 @@ def test_predict_famille_thematique_est_obligatoire(client, valid_payload):
     assert client.post("/predict", json=incomplet).status_code == 422
 
 
-def test_predict_ne_demande_pas_la_nationalite(client, valid_payload):
-    """`nationalite_hors_ue` ne doit pas pouvoir influencer le scoring : elle
-    n'est pas un champ du schéma, donc une valeur envoyée par un appelant est
-    ignorée et la prédiction reste identique."""
-    reference = client.post("/predict", json=valid_payload).json()
-    injecte = client.post(
-        "/predict", json={**valid_payload, "nationalite_hors_ue": 1}
-    ).json()
-    assert injecte["prediction"] == reference["prediction"]
-    assert injecte["probability"] == reference["probability"]
+def test_predict_exige_la_nationalite(client, valid_payload):
+    """Critère de sortie n° 2 de l'alignement : un payload à 7 champs — le
+    contrat `v2.0.0` — doit désormais être rejeté. La rupture est explicite,
+    elle est la raison du passage en version majeure `v3.0.0`."""
+    incomplet = {k: v for k, v in valid_payload.items() if k != "nationalite_hors_ue"}
+
+    assert len(incomplet) == 7
+    assert client.post("/predict", json=incomplet).status_code == 422
+
+
+def test_predict_refuse_une_nationalite_hors_domaine(client, valid_payload):
+    """La variable est binaire : toute autre valeur trahit un appelant qui a
+    mal compris le contrat, et ne doit pas atteindre le pipeline."""
+    for valeur in (2, -1):
+        resp = client.post("/predict", json={**valid_payload, "nationalite_hors_ue": valeur})
+        assert resp.status_code == 422, f"nationalite_hors_ue={valeur} accepté"
+
+
+def test_la_nationalite_est_bien_consommee_par_le_modele(client, valid_payload):
+    """Contrepartie du test supprimé en A2.4.
+
+    L'arbitrage `J0` assume que la variable **influence** la prédiction : c'est
+    la condition pour que le recall classe 2 des usagers hors UE (0.800) reste
+    supérieur à celui des usagers UE (0.529). Un service qui la recevrait sans
+    la transmettre au pipeline rejouerait silencieusement la neutralisation de
+    la phase 4 — ce test l'interdit.
+
+    On balaie plusieurs profils : sur un profil donné la frontière de décision
+    peut être insensible à la variable, mais elle ne peut pas l'être partout.
+    """
+    profils = [
+        {**valid_payload, "age": age, "niveau_diplome": diplome}
+        for age in (25, 35, 45, 55)
+        for diplome in ("Sans diplôme", "Bac", "Bac+2")
+    ]
+    ecarts = 0
+    for profil in profils:
+        ue = client.post("/predict", json={**profil, "nationalite_hors_ue": 0}).json()
+        hors_ue = client.post("/predict", json={**profil, "nationalite_hors_ue": 1}).json()
+        if (ue["prediction"], ue["probability"]) != (
+            hors_ue["prediction"],
+            hors_ue["probability"],
+        ):
+            ecarts += 1
+
+    assert ecarts > 0, (
+        "La nationalité n'a modifié aucune sortie sur 12 profils : le service "
+        "la neutralise probablement avant l'inférence."
+    )
 
 
 def test_metrics_endpoint_exposes_prometheus(client, valid_payload):
@@ -114,8 +166,11 @@ def test_model_contract_features_and_output():
         "age": 35, "anciennete_poste_ans": 3.5, "niveau_diplome": "Bac+2",
         "code_rome_vise": "M1607", "est_allocataire": 1, "departement": "75",
         "famille_thematique": "reconversion et besoin de formation",
-        **meta["feature_columns_forced"],
+        "nationalite_hors_ue": 0,
     }
+    # Les colonnes déclarées et les champs du schéma d'entrée doivent coïncider
+    # exactement : plus aucune colonne n'est injectée par le service.
+    assert set(cols) == set(row)
     X = pd.DataFrame([row])[cols]
     pred = int(model.predict(X)[0])
     assert pred in (0, 1, 2)

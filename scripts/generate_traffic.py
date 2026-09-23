@@ -65,6 +65,11 @@ def row_to_payload(row: dict[str, str]) -> dict[str, object] | None:
         age = int(float(row["age"]))
         anciennete = float(row["anciennete_poste_ans"])
         est_allocataire = int(float(row["est_allocataire"]))
+        # Feature d'entrée à part entière depuis v3.0.0 (arbitrage J0) : elle
+        # est remontée du dataset telle quelle, et non forcée à une constante.
+        # Un trafic qui l'aplatirait produirait un `prod_scored.csv` sur lequel
+        # l'audit d'équité par nationalité (A4.1) serait sans objet.
+        nationalite_hors_ue = int(float(row["nationalite_hors_ue"]))
     except (KeyError, TypeError, ValueError):
         return None
 
@@ -79,6 +84,8 @@ def row_to_payload(row: dict[str, str]) -> dict[str, object] | None:
 
     if not (18 <= age <= 70 and 0 <= anciennete <= 40 and est_allocataire in (0, 1)):
         return None
+    if nationalite_hors_ue not in (0, 1):
+        return None
     if niveau not in NIVEAUX_DIPLOME:
         return None
     if not ROME_PATTERN.match(rome) or not DEPARTEMENT_PATTERN.match(departement):
@@ -92,6 +99,7 @@ def row_to_payload(row: dict[str, str]) -> dict[str, object] | None:
         "est_allocataire": est_allocataire,
         "departement": departement,
         "famille_thematique": famille,
+        "nationalite_hors_ue": nationalite_hors_ue,
     }
 
 

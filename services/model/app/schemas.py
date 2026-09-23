@@ -3,7 +3,7 @@
 Alignés sur les features du pipeline `models/emploi_retour_s1.joblib`
 (cf. `src/pipeline_tabulaire.py::SCENARIO_FEATURES["s1"]`).
 
-Deux écarts assumés entre les features du pipeline et les champs de l'API :
+Un seul écart subsiste entre les features du pipeline et les champs de l'API :
 
 - ``famille_thematique`` **est** un champ d'entrée : depuis la phase 2, la
   synthèse d'entretien ne se présente plus comme du texte libre mais comme une
@@ -11,10 +11,11 @@ Deux écarts assumés entre les features du pipeline et les champs de l'API :
   ``data/referentiel_familles.csv``. Un ``Literal`` fermé est donc possible —
   et souhaitable : l'encodeur du pipeline est en ``handle_unknown="ignore"``,
   une modalité inconnue passerait silencieusement en vecteur nul.
-- ``nationalite_hors_ue`` **n'est pas** un champ d'entrée : le service l'injecte
-  à une valeur constante (cf. ``app.main.NATIONALITE_HORS_UE_NEUTRE``) pour
-  qu'aucun usager ne soit traité différemment selon sa nationalité. Cet écart
-  est déclaré dans ``emploi_retour_s1.json`` (``feature_columns_forced``).
+
+``nationalite_hors_ue`` est, depuis ``v3.0.0``, une **feature d'entrée à part
+entière** : le service la reçoit de l'appelant et ne la réécrit plus. Les 8
+champs du schéma sont donc exactement les 8 features du scénario s1, et les
+métriques annoncées par ``/info`` sont celles du modèle réellement servi.
 """
 from __future__ import annotations
 
@@ -40,6 +41,23 @@ FamilleThematique = Literal[
     "texte_manquant",
 ]
 
+# Statut réglementaire de `nationalite_hors_ue`, exposé tel quel dans l'OpenAPI
+# du service : tout intégrateur qui lit le contrat lit aussi les limites de
+# l'usage autorisé. C'est le seul endroit du code où cette donnée est décrite,
+# et il est volontairement explicite.
+NATIONALITE_DESCRIPTION = (
+    "Nationalité hors Union européenne : 1 (hors UE), 0 (UE). "
+    "DONNÉE SENSIBLE — collectée au titre de l'arbitrage métier et juridique "
+    "J0, sur la base légale de l'art. 6.1.e RGPD (mission d'intérêt public). "
+    "Finalité strictement limitée à la priorisation vers un accompagnement "
+    "renforcé : tout usage de contrôle, de sanction, de radiation ou de refus "
+    "est exclu. Cette variable est conservée parce qu'elle AMÉLIORE la "
+    "détection du public le plus exposé (recall classe 2 : 0.800 hors UE contre "
+    "0.529 UE, §7.2) et parce qu'elle est l'axe obligatoire de l'audit "
+    "d'équité. Elle ne doit être ni journalisée, ni exposée en supervision, ni "
+    "réutilisée hors de ce traitement."
+)
+
 
 class UsagerFeatures(BaseModel):
     """Input schema for /predict.
@@ -50,6 +68,7 @@ class UsagerFeatures(BaseModel):
     - code_rome_vise : code ROME à 5 caractères (1 lettre + 4 chiffres)
     - departement : code département français à 2 caractères (dont 2A/2B)
     - famille_thematique : synthèse d'entretien réduite à ses 9 familles
+    - nationalite_hors_ue : donnée sensible, cf. la description du champ
     """
 
     age: int = Field(..., ge=18, le=70, description="Âge de l'usager en années")
@@ -82,6 +101,12 @@ class UsagerFeatures(BaseModel):
             "synthèse n'a été saisie."
         ),
     )
+    nationalite_hors_ue: int = Field(
+        ...,
+        ge=0,
+        le=1,
+        description=NATIONALITE_DESCRIPTION,
+    )
 
 
 class Prediction(BaseModel):
@@ -111,9 +136,6 @@ class InfoResponse(BaseModel):
     scenario: str | None = None
     feature_columns_numeric: list[str] = []
     feature_columns_categorical: list[str] = []
-    # Colonnes attendues par le pipeline mais jamais demandées à l'appelant :
-    # rendues visibles ici pour que l'écart schéma ↔ modèle soit auditable.
-    feature_columns_forced: dict = {}
     metrics_holdout: dict | None = None
     sklearn_version: str | None = None
     dataset_sha256: str | None = None

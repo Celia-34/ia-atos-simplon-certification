@@ -2,8 +2,9 @@
 
 pytest n'exécute pas le JavaScript : on vérifie les CONTRATS du formulaire,
 pas son comportement dynamique.
-  - les 7 champs correspondent au schéma Pydantic UsagerFeatures ;
+  - les 8 champs correspondent au schéma Pydantic UsagerFeatures ;
   - les <select> catégoriels n'exposent que des modalités connues du modèle ;
+  - la mention d'information de la condition C7 est présente (donnée sensible) ;
   - l'appel API reste en chemin relatif (proxy nginx, pas de CORS).
 """
 from __future__ import annotations
@@ -23,8 +24,9 @@ MODEL_PATH = REPO_ROOT / "services" / "model" / "models" / "emploi_retour_s1.job
 SCHEMAS_PY = REPO_ROOT / "services" / "backend" / "app" / "schemas.py"
 
 NUMERIC_FIELDS = {"age", "anciennete_poste_ans"}
-# est_allocataire est un <select> numérique (0/1), pas une saisie libre.
-NUMERIC_SELECT_FIELDS = {"est_allocataire"}
+# est_allocataire et nationalite_hors_ue sont des <select> numériques (0/1),
+# pas des saisies libres.
+NUMERIC_SELECT_FIELDS = {"est_allocataire", "nationalite_hors_ue"}
 
 
 class FormParser(HTMLParser):
@@ -94,10 +96,6 @@ def encoder_categories() -> dict[str, set]:
                 categories.update({c: set(cat) for c, cat in zip(cols, step.categories_)})
     if not categories:
         pytest.fail("Aucun encodeur catégoriel trouvé dans le pipeline")
-    # `nationalite_hors_ue` est consommée par le pipeline mais jamais demandée à
-    # l'usager : le service l'injecte (cf. services/model/app/main.py). Elle n'a
-    # donc rien à faire dans le formulaire.
-    categories.pop("nationalite_hors_ue", None)
     return categories
 
 
@@ -107,10 +105,24 @@ def test_les_champs_du_schema_sont_presents(form, schema):
     assert set(form.fields) == set(schema.model_fields)
 
 
-def test_la_nationalite_n_est_pas_demandee(form):
-    """Choix d'architecture : la nationalité ne doit pas pouvoir influencer le
-    scoring, donc ni le formulaire ni l'API ne la collectent."""
-    assert "nationalite_hors_ue" not in form.fields
+def test_la_nationalite_est_collectee_par_le_formulaire(form):
+    """Condition C7 de l'arbitrage `J0` : la variable est collectée auprès du
+    conseiller, plus injectée côté serveur. Sa présence au formulaire est ce qui
+    rend la collecte visible — donc contestable — par la personne concernée."""
+    assert "nationalite_hors_ue" in form.fields
+    assert form.options["nationalite_hors_ue"] == {"0", "1"}
+
+
+def test_la_donnee_sensible_porte_sa_mention_d_information(html_text):
+    """Condition C7 (art. 13-14 RGPD) : la finalité et ses limites doivent être
+    affichées, pas seulement documentées ailleurs.
+
+    Le test porte sur des marqueurs de fond, pas sur une formulation exacte :
+    reformuler la mention reste possible, la supprimer ne l'est pas.
+    """
+    assert 'class="sensible"' in html_text, "la donnée sensible doit être isolée"
+    for marqueur in ("accompagnement renforcé", "6.1.e", "sanction", "rectification"):
+        assert marqueur in html_text, f"mention d'information incomplète : {marqueur!r}"
 
 
 def test_les_champs_numeriques_libres_portent_le_marqueur_de_conversion(form):

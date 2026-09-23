@@ -36,7 +36,8 @@ def valid_payload() -> dict:
 
     `famille_thematique` est une modalité du référentiel figé (§4.2.2) :
     depuis la phase 2 la synthèse d'entretien est catégorielle, pas du texte.
-    `nationalite_hors_ue` n'y figure pas : le service l'injecte lui-même.
+    Les 8 champs du payload sont exactement les 8 features du scénario s1 —
+    `nationalite_hors_ue` comprise, depuis l'alignement `v3.0.0`.
     """
     return {
         "age": 35,
@@ -46,4 +47,5 @@ def valid_payload() -> dict:
         "est_allocataire": 1,
         "departement": "75",
         "famille_thematique": "reconversion et besoin de formation",
+        "nationalite_hors_ue": 0,
     }

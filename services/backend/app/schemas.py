@@ -33,6 +33,21 @@ FamilleThematique = Literal[
     "texte_manquant",
 ]
 
+# Statut réglementaire de `nationalite_hors_ue` — doit rester identique à
+# `services/model/app/schemas.py::NATIONALITE_DESCRIPTION`.
+NATIONALITE_DESCRIPTION = (
+    "Nationalité hors Union européenne : 1 (hors UE), 0 (UE). "
+    "DONNÉE SENSIBLE — collectée au titre de l'arbitrage métier et juridique "
+    "J0, sur la base légale de l'art. 6.1.e RGPD (mission d'intérêt public). "
+    "Finalité strictement limitée à la priorisation vers un accompagnement "
+    "renforcé : tout usage de contrôle, de sanction, de radiation ou de refus "
+    "est exclu. Cette variable est conservée parce qu'elle AMÉLIORE la "
+    "détection du public le plus exposé (recall classe 2 : 0.800 hors UE contre "
+    "0.529 UE, §7.2) et parce qu'elle est l'axe obligatoire de l'audit "
+    "d'équité. Elle ne doit être ni journalisée, ni exposée en supervision, ni "
+    "réutilisée hors de ce traitement."
+)
+
 
 class UsagerFeatures(BaseModel):
     """Input schema for /score."""
@@ -66,6 +81,12 @@ class UsagerFeatures(BaseModel):
             "principal identifié par le conseiller. 'texte_manquant' si aucune "
             "synthèse n'a été saisie."
         ),
+    )
+    nationalite_hors_ue: int = Field(
+        ...,
+        ge=0,
+        le=1,
+        description=NATIONALITE_DESCRIPTION,
     )
 
 
