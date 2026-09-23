@@ -143,6 +143,43 @@ def test_la_nationalite_est_bien_consommee_par_le_modele(client, valid_payload):
     )
 
 
+def test_une_erreur_de_prediction_ne_journalise_pas_la_nationalite(client, valid_payload):
+    """Condition C2 — la donnée sensible ne doit jamais atteindre les logs.
+
+    Le `LoggingMiddleware` ne journalise pas le corps des requêtes, mais ce
+    n'est pas le seul canal : par défaut, loguru enrichit les tracebacks avec
+    la **valeur des variables locales**. Une exception dans `/predict`
+    inscrirait alors `UsagerFeatures(... nationalite_hors_ue=1)` en clair dans
+    `logs/api.log`, pour une durée de rétention de 7 jours.
+
+    Ce test provoque une vraie erreur de prédiction et relit le fichier. Il
+    échouerait si `diagnose`/`backtrace` étaient réactivés.
+    """
+    import time
+
+    log_path = Path(__file__).parent.parent / "logs" / "api.log"
+    taille_avant = log_path.stat().st_size if log_path.exists() else 0
+
+    class ModeleQuiCasse:
+        def predict(self, X):
+            raise RuntimeError("panne simulée")
+
+    modele_initial = client.app.state.model
+    client.app.state.model = ModeleQuiCasse()
+    try:
+        resp = client.post("/predict", json={**valid_payload, "nationalite_hors_ue": 1})
+        assert resp.status_code == 500
+    finally:
+        client.app.state.model = modele_initial
+
+    time.sleep(0.5)  # sink `enqueue=True` : l'écriture est asynchrone
+    ecrit = log_path.read_text(encoding="utf-8", errors="replace")[taille_avant:]
+
+    assert "panne simulée" in ecrit, "l'erreur n'a pas été journalisée, test inopérant"
+    assert "nationalite" not in ecrit.lower()
+    assert "UsagerFeatures(" not in ecrit
+
+
 def test_metrics_endpoint_exposes_prometheus(client, valid_payload):
     client.post("/predict", json=valid_payload)  # génère au moins 1 observation
     resp = client.get("/metrics")

@@ -21,7 +21,21 @@ expose 3 métriques **métier** :
 Volontairement **non** instrumentées en labels : ``code_rome_vise`` (≈50
 modalités) et ``departement`` (≈96) feraient exploser le nombre de séries ;
 ``age``/``anciennete_poste_ans`` relèvent d'un histogramme dédié si le besoin
-se confirme ; ``nationalite_hors_ue`` n'est plus une entrée de l'API.
+se confirme.
+
+``nationalite_hors_ue`` est un cas à part, et son exclusion relève d'une
+décision et non d'une contrainte technique. Elle est redevenue une entrée de
+l'API en ``v3.0.0``, et sa cardinalité (2 modalités) la rendrait triviale à
+instrumenter. C'est précisément pour cela que l'interdiction doit être écrite :
+labelliser une métrique Prometheus par un critère de discrimination prohibé
+reviendrait à constituer un **journal permanent, non expurgeable et largement
+accessible** de cette donnée — disproportionné au regard de la finalité, et
+incompatible avec les droits d'effacement et de rectification. C'est la
+condition **C2** de l'arbitrage `J0`.
+
+L'audit d'équité par nationalité se fait donc **hors ligne**
+(``scripts/audit_equite.py``), sur le périmètre restreint et tracé du jeu
+annoté, et jamais en temps réel sur ``/metrics``.
 """
 from __future__ import annotations
 

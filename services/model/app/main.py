@@ -1,4 +1,4 @@
-"""Service `model` — API de scoring du risque de retour à l'emploi (scénario s1).
+﻿"""Service `model` — API de scoring du risque de retour à l'emploi (scénario s1).
 
 Charge le pipeline scikit-learn entraîné (`ColumnTransformer` +
 `RandomForestClassifier(n_estimators=300, class_weight="balanced",
@@ -28,7 +28,18 @@ from app.schemas import HealthResponse, InfoResponse, Prediction, UsagerFeatures
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 logger.remove()
-logger.add(sys.stderr, level="INFO", colorize=True)
+# `backtrace=False, diagnose=False` : condition C2 de l'arbitrage `J0`.
+#
+# Par défaut, loguru enrichit les tracebacks avec la **valeur des variables
+# locales**. Depuis que `nationalite_hors_ue` est un champ d'entrée (v3.0.0),
+# une exception dans `/predict` inscrirait donc la nationalité de l'usager en
+# clair dans `logs/api.log` — dans le dépôt de l'objet `UsagerFeatures` comme
+# dans celui du DataFrame passé au pipeline. Le `LoggingMiddleware` ne
+# journalise pas le corps des requêtes, mais ce canal-là contournait la
+# garantie. La mise au point diagnostique reste possible en local en
+# réactivant temporairement ces deux options sur un jeu de données factice.
+_SINK_OPTIONS = {"backtrace": False, "diagnose": False}
+logger.add(sys.stderr, level="INFO", colorize=True, **_SINK_OPTIONS)
 logger.add(
     LOGS_DIR / "api.log",
     rotation="10 MB",
@@ -36,6 +47,7 @@ logger.add(
     serialize=True,
     enqueue=True,
     level="INFO",
+    **_SINK_OPTIONS,
 )
 
 # --- Lifespan ---------------------------------------------------------------
