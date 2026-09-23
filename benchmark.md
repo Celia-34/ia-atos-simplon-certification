@@ -20,7 +20,7 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | RandomForestClassifier (default) | 0.71 | 0.695 | 0.66 | 0.622 | 14.1 % | 6.1 % | 28.3 % | 62 290 € | 11 340 € | 73 630 € |
 | RandomForestClassifier (max_depth=10) | 0.7 | 0.686 | 0.677 | 0.615 | 🔴 18.8 % | 7.6 % | 37.9 % | 39 370 € | 15 160 € | 54 530 € |
 | RandomForestClassifier (min_samples_leaf=5) | 0.7 | 0.687 | ⭐🟢 0.754 | 0.612 | 13.5 % | 11.3 % | 38.3 % | ⭐🟢 34 480 € | 🔴 15 300 € | ⭐🟢 49 780 € |
-| RandomForestClassifier (n_estimators=300, class_weight=balanced) | 0.713 | 0.695 | 0.641 | 0.607 | 13.8 % | 7.1 % | 27.2 % | 62 660 € | 10 880 € | 73 540 € |
+| RandomForestClassifier (n_estimators=300) | 0.713 | 0.695 | 0.641 | 0.607 | 13.8 % | 7.1 % | 27.2 % | 62 660 € | 10 880 € | 73 540 € |
 
 ## Scénario `s2`
 
@@ -37,16 +37,6 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | HistGradientBoostingClassifier (default) | 🟢 0.652 | 🟢 0.635 | 🟢 0.66 | 🟢 0.542 | 🟢 19.1 % | 🟢 18.7 % | 24.7 % | 🔴 103 380 € | 🟢 9 880 € | 🔴 113 260 € |
 | LogisticRegression (default) | 🟢 0.652 | 🟢 0.635 | 🟢 0.66 | 🟢 0.542 | 🟢 19.1 % | 🟢 18.7 % | 28.5 % | 🟢 99 580 € | 🔴 11 420 € | 🟢 111 000 € |
 | RandomForestClassifier (default) | 🟢 0.652 | 🟢 0.635 | 🟢 0.66 | 🟢 0.542 | 🟢 19.1 % | 🟢 18.7 % | 28.5 % | 🟢 99 580 € | 🔴 11 420 € | 🟢 111 000 € |
-
-## Scénario `s3+s4-age-dip`
-
-TODO : a réexecuter pour mettre à jour
-
-| Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) | Part dossiers en alerte (validation manuelle) | Coût erreurs résiduelles (€) | Coût revues manuelles (€) | Coût métier total (€) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| HistGradientBoostingClassifier (default) | 0.651 | 0.622 | 🔴 0.47 | 0.502 | 🟢 16.9 % | 🟢 6.8 % | 20.6 % | 🔴 117 040 € | 🟢 8 240 € | 🔴 125 280 € |
-| LogisticRegression (default) | 🟢 0.666 | 🟢 0.648 | 🟢 0.669 | 🟢 0.548 | 17.1 % | 🔴 15.6 % | 35.9 % | 🟢 61 770 € | 🔴 14 380 € | 🟢 76 150 € |
-| RandomForestClassifier (default) | 🔴 0.586 | 🔴 0.57 | 0.555 | 🔴 0.48 | 🔴 17.7 % | 12.7 % | 28.9 % | 101 630 € | 11 580 € | 113 210 € |
 
 ## Scénario `s4-age-dip`
 
@@ -80,4 +70,4 @@ TODO : a réexecuter pour mettre à jour
 | RandomForestClassifier (default) | 0.69 | 0.674 | 0.569 | 0.601 | 9.4 % | ⭐🟢 2.5 % | 21.5 % | 92 400 € | 8 600 € | 101 000 € |
 | RandomForestClassifier (max_depth=10) | 0.632 | 0.619 | 0.594 | 0.573 | 🔴 15.7 % | 3.7 % | 29.9 % | 82 720 € | 11 980 € | 94 700 € |
 | RandomForestClassifier (min_samples_leaf=5) | 0.628 | 0.611 | 0.622 | 0.52 | 11.9 % | 7.2 % | 32.2 % | 83 260 € | 12 860 € | 96 120 € |
-| RandomForestClassifier (n_estimators=300, class_weight=balanced) | 🟢 0.698 | 🟢 0.68 | 0.561 | 🟢 0.601 | ⭐🟢 8.3 % | 2.7 % | 20.9 % | 91 100 € | 8 360 € | 99 460 € |
+| RandomForestClassifier (n_estimators=300) | 🟢 0.698 | 🟢 0.68 | 0.561 | 🟢 0.601 | ⭐🟢 8.3 % | 2.7 % | 20.9 % | 91 100 € | 8 360 € | 99 460 € |

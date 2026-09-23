@@ -1,0 +1,69 @@
+{
+  "date_persistance": "2026-09-23T19:17:19",
+  "chemin_modele": "modele_final_s1_RandomForestClassifier__n_estimators_300__class_weight_balanced_.joblib",
+  "taille_mo": 34.357,
+  "versions": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0"
+  },
+  "scenario": "s1",
+  "modele": "RandomForestClassifier (n_estimators=300, class_weight=balanced)",
+  "avec_texte": true,
+  "features_entree": [
+    "nationalite_hors_ue",
+    "age",
+    "anciennete_poste_ans",
+    "niveau_diplome",
+    "code_rome_vise",
+    "est_allocataire",
+    "departement",
+    "famille_thematique"
+  ],
+  "classes": {
+    "0": "retour rapide (< 6 mois)",
+    "1": "retour moyen (6-12 mois)",
+    "2": "risque de longue durée (> 12 mois)"
+  },
+  "random_state": 42,
+  "dataset": {
+    "nom": "Trajectoire Emploi - Examen CISIA",
+    "source": "../data/dataset_trajectoire_emploi.csv",
+    "version": "2026-08-14_initiale",
+    "n_train": 2000,
+    "n_test": 500
+  },
+  "git_commit": "8af0153",
+  "regles_validation_manuelle": {
+    "seuil_a": 0.4,
+    "seuil_b": 0.2,
+    "cout_revue_manuelle_eur": 20
+  },
+  "metriques_test": {
+    "accuracy": 0.714,
+    "f1_macro": 0.6898594094578296,
+    "recall_classe_2": 0.5888888888888889,
+    "f1_classe_2": 0.5698924731182796,
+    "taux_erreur_grave_2_vers_0": 0.1,
+    "taux_erreur_0_vers_2": 0.0481283422459893
+  },
+  "matrice_confusion_test": [
+    [
+      142,
+      36,
+      9
+    ],
+    [
+      27,
+      162,
+      34
+    ],
+    [
+      9,
+      28,
+      53
+    ]
+  ]
+}
