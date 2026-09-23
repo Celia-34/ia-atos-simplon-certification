@@ -173,7 +173,11 @@ def test_une_erreur_de_prediction_ne_journalise_pas_la_nationalite(client, valid
         client.app.state.model = modele_initial
 
     time.sleep(0.5)  # sink `enqueue=True` : l'écriture est asynchrone
-    ecrit = log_path.read_text(encoding="utf-8", errors="replace")[taille_avant:]
+    # Lecture en OCTETS : `st_size` est une taille en octets, alors qu'un slice
+    # de `str` compte des caractères. Sur un log contenant des accents les deux
+    # divergent, et la tranche ampute le début du nouveau contenu — c'est-à-dire
+    # précisément l'enregistrement d'exception que ce test doit inspecter.
+    ecrit = log_path.read_bytes()[taille_avant:].decode("utf-8", errors="replace")
 
     assert "panne simulée" in ecrit, "l'erreur n'a pas été journalisée, test inopérant"
     assert "nationalite" not in ecrit.lower()
