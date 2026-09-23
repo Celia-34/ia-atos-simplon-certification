@@ -17,7 +17,11 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 @pytest.fixture
 def client():
-    """TestClient FastAPI (déclenche le lifespan → charge le modèle)."""
+    """TestClient FastAPI (déclenche le lifespan → charge le modèle).
+
+    L'isolation du package `app` entre les services est assurée par le
+    `conftest.py` racine (hooks `pytest_collectstart` / `pytest_runtest_setup`).
+    """
     from fastapi.testclient import TestClient
 
     from app.main import app
