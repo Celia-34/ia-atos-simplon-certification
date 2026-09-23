@@ -26,7 +26,7 @@ Ces critères donnent une vue d'ensemble de la qualité des prédictions et de l
 
 Les seuils révisés devront être confirmés après validation croisée sur le train et une unique évaluation sur le jeu de test stratifié. Un modèle satisfaisant l'accuracy mais échouant sur le recall de la classe 2, les erreurs graves ou l'écart d'équité sera écarté.
 
-#### Confrontation aux résultats obtenus (modèle retenu : S1 + `RandomForestClassifier(n_estimators=300)`)
+#### Confrontation aux résultats obtenus (modèle retenu : S1 + `RandomForestClassifier(n_estimators=300, class_weight="balanced")`)
 
 Bilan honnête à l'issue de l'étape 5. Les chiffres proviennent de `evaluation_finale.md` (test set, §5.6.2) et de l'audit §7.2 ; ils ne sont pas recopiés à la main mais repris des fichiers générés par le notebook.
 

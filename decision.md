@@ -22,11 +22,11 @@
 
 **Choix** : Identification de variables à risque : `usager_id`, `age`, `niveau_diplome`, `anciennete_poste_ans`, `code_rome_vise`, `code_insee_commune`, `est_allocataire`, `nationalite_hors_ue`, `synthese_entretien`, chacune associée à un risque spécifique (RGPD, discrimination, proxy).
 
-**Justification** : `nationalite_hors_ue` est une variable sensible explicite (RGPD art. 9) ; `age` est une variable protégée ; `code_insee_commune` est un proxy territorial à haute granularité.
+**Justification** : `nationalite_hors_ue` peut constituer un proxy d'origine et relève de la vigilance non-discrimination, mais la nationalité ne figure pas parmi les catégories particulières de l'art. 9 RGPD. La base légale retenue est l'art. 6.1.e (mission d'intérêt public) ; `age` est une variable protégée et `code_insee_commune` un proxy territorial à haute granularité.
 
 ### Cadre réglementaire applicable
 
-**Choix** : Application du RGPD (art. 9, minimisation, base légale à documenter), de l'AI Act (classement probable "haut risque" — Annexe III emploi), et du droit sectoriel (non-discrimination).
+**Choix** : Application du RGPD (art. 6.1.e, minimisation et information des personnes), de l'AI Act (classement probable "haut risque" — Annexe III emploi), et du droit sectoriel (non-discrimination). L'art. 9 n'est pas la base légale de la nationalité.
 
 **Justification** : Le traitement porte sur des données personnelles/sensibles et le système influence l'accompagnement vers l'emploi des usagers.
 
@@ -66,9 +66,9 @@
 
 ### Variables sensibles / proxy — orientations préliminaires pour la modélisation
 
-**Choix** : `nationalite_hors_ue` exclue des features (conservée uniquement pour l'audit d'équité) ; `age` et `niveau_diplome` comparés en scénarios avec/sans ; `code_insee_commune` écarté au profit d'une version agrégée par département.
+**Choix initial** : `nationalite_hors_ue` devait être exclue des features ; `age` et `niveau_diplome` comparés en scénarios avec/sans ; `code_insee_commune` écarté au profit d'une version agrégée par département. Cette précaution a été révisée par l'arbitrage J0 après mesure du bénéfice de détection.
 
-**Justification** : Disparate impact confirmé empiriquement (ratio ×2,46 UE/hors UE ; écart de 32,4 points par tranche d'âge ; écart de 34,2 points par diplôme ; écarts territoriaux de 9,7 % à 39 %).
+**Justification** : Disparate impact confirmé empiriquement (ratio ×2,46 UE/hors UE ; écart de 32,4 points par tranche d'âge ; écart de 34,2 points par diplôme ; écarts territoriaux de 9,7 % à 39 %). Ces écarts ont déclenché l'audit et les garde-fous J0, pas une conclusion automatique de discrimination du modèle.
 
 ### Nature réelle de `synthese_entretien` : 9 templates, pas du texte libre
 
@@ -137,7 +137,7 @@
 
 **Choix** : Variable exclue de toutes les features de tous les scénarios, conservée uniquement pour l'audit d'équité.
 
-**Justification** : Son signal est associé à un risque de discrimination directe (variable sensible explicite, RGPD art. 9).
+**Justification** : Son signal est associé à un risque de discrimination directe et de proxy d'origine ; la nationalité n'est toutefois pas une catégorie particulière de l'art. 9 RGPD, et la base légale documentée est l'art. 6.1.e.
 
 ### Traitement de `code_insee_commune`
 
@@ -257,6 +257,16 @@
 
 **Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation) et pour la traçabilité exigée d'un système à haut risque. Le modèle servi (`services/model/models/emploi_retour_s1.joblib`, v2.0.0) est exporté depuis cet artefact par `scripts/export_model_prod.py`.
 
+### Condition C6 — AIPD et registre des traitements
+
+La mise en service reste conditionnée à une AIPD au titre de l'art. 35 RGPD et
+à l'inscription du traitement au registre. Le dossier devra décrire la finalité
+C1, la base légale art. 6.1.e, les catégories de personnes et de données, les
+destinataires, les durées de conservation, les droits art. 13-14, les mesures
+de minimisation et d'accès, l'audit C3, la clause de retrait C4 et la revue
+humaine C5. Le DPO et la direction métier doivent valider ces deux livrables
+avant tout déploiement ; aucune validation n'est présumée par le code.
+
 ### Constat sur la cible de recall classe 2
 
 **Choix** : Le recall classe 2 obtenu (**0,589** sur le test set, 0,660 en CV) reste nettement en-deçà de la cible de 0,80 fixée dans `criteria.md` ; le taux d'erreur grave (10,0 %) reste au double du seuil de 5 %. Les deux écarts sont assumés et documentés plutôt que masqués.
@@ -273,6 +283,23 @@
 
 ## Étape 5 — Arbitrer
 
+### Arbitrage J0 — maintien de `nationalite_hors_ue`
+
+**Décision** : conserver `nationalite_hors_ue` comme feature du scénario S1 et
+comme axe obligatoire de l'audit d'équité. La mesure ex post montre un recall de
+classe 2 supérieur hors UE (0,800 contre 0,529 UE dans l'analyse de référence) :
+la variable sert à mieux orienter vers un accompagnement renforcé, jamais à
+contrôler, sanctionner, radier ou refuser un accompagnement.
+
+**Conditions C1 à C7** : finalité limitée à l'accompagnement renforcé ; aucune
+exposition dans Prometheus, Grafana ou les logs ; audit récurrent avec marquage
+des effectifs sous 30 ; retrait automatique si le recall hors UE devient
+inférieur au recall UE ; maintien de la revue humaine §5.2.3 ; AIPD art. 35 et
+inscription au registre avant mise en service ; information art. 13-14.
+
+La décision est réversible et ne vaut pas autorisation de mise en production :
+le filet de sécurité ne rattrape encore qu'une partie des erreurs graves 2→0.
+
 ### Correction du scénario S1 (bug découvert et corrigé)
 
 **Choix** : Le scénario **S1**, décrit dans `scenarii.md` comme "approche multimodale complète" (tabulaire + synthèse d'entretien), était implémenté dans `src/pipeline_tabulaire.py` en **tabulaire seul** — un écart entre le plan documenté et le code. Ce bug a été corrigé en deux temps : d'abord par la généralisation d'un module d'assemblage tabulaire + texte vectorisé (`src/pipeline_tabulaire_hybride.py`), puis, après la requalification de la synthèse en variable catégorielle, par la suppression pure et simple de ce module — `famille_thematique` étant désormais une colonne du `ColumnTransformer` tabulaire. Un scénario **S4-all** a été créé pour désigner explicitement la variante tabulaire-seule (les 7 mêmes variables que S1, sans la famille thématique), conservée comme témoin.
@@ -283,7 +310,7 @@
 
 **Choix** : Retrait complet du zero-shot CamemBERT et de la vectorisation TF-IDF du code, du notebook, des modèles servis, de l'API, des dépendances et de la CI. Le référentiel `data/referentiel_familles.csv` est conservé comme **donnée versionnée** et unique trace exploitable de la méthode d'étiquetage.
 
-**Justification** : Voir le raisonnement complet en Étape 2 (9 templates ⇒ donnée tabulaire). Conséquences chiffrées : métriques **améliorées** en moyenne (Δ F1 macro +0,004, Δ recall classe 2 +0,006, Δ erreur grave −0,1 point, avec +0,027 / +0,033 / −1,6 point sur la configuration retenue S1/RandomForest) ; **~2,5 Go de dépendances retirées** (`torch`, `torchvision`, `transformers`, `sentencepiece`, `protobuf`) ; plus aucune inférence de transformeur, donc un service d'inférence dont la surface d'attaque, l'empreinte et le temps de démarrage sont réduits d'autant. Le changement de représentation a également modifié le classement des finalistes : `RandomForestClassifier(n_estimators=300)` remplace `HistGradientBoostingClassifier(class_weight={0:1,1:1,2:3})` comme modèle retenu.
+**Justification** : Voir le raisonnement complet en Étape 2 (9 templates ⇒ donnée tabulaire). Conséquences chiffrées : métriques **améliorées** en moyenne (Δ F1 macro +0,004, Δ recall classe 2 +0,006, Δ erreur grave −0,1 point, avec +0,027 / +0,033 / −1,6 point sur la configuration retenue S1/RandomForest) ; **~2,5 Go de dépendances retirées** (`torch`, `torchvision`, `transformers`, `sentencepiece`, `protobuf`) ; plus aucune inférence de transformeur, donc un service d'inférence dont la surface d'attaque, l'empreinte et le temps de démarrage sont réduits d'autant. Le changement de représentation a également modifié le classement des finalistes : `RandomForestClassifier(n_estimators=300, class_weight="balanced")` remplace `HistGradientBoostingClassifier(class_weight={0:1,1:1,2:3})` comme modèle retenu.
 
 ### Choix final du modèle/scénario
 

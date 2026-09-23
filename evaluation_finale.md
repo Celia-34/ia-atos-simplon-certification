@@ -8,4 +8,4 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| RandomForestClassifier (n_estimators=300) — évaluation finale test set | ⭐🟢 0.714 | ⭐🟢 0.69 | ⭐🟢 0.589 | ⭐🟢 0.57 | ⭐🟢 10.0 % | ⭐🟢 4.8 % |
+| RandomForestClassifier (n_estimators=300, class_weight=balanced) — évaluation finale test set | ⭐🟢 0.714 | ⭐🟢 0.69 | ⭐🟢 0.589 | ⭐🟢 0.57 | ⭐🟢 10.0 % | ⭐🟢 4.8 % |
