@@ -55,8 +55,43 @@ jobs:
       - name: Tests ${{ matrix.suite }}
         run: pytest -v ${{ matrix.path }}
 
-  build-and-push:
+  quality-gate:
+    # Barrière de déploiement, distincte des tests : les suites vérifient que
+    # les fichiers ne se contredisent pas, la gate REJOUE le golden run depuis
+    # l'artefact réellement servi et confronte le résultat aux chiffres publiés.
+    # C'est le seul contrôle capable de détecter une `reference_baseline.json`
+    # périmée — un artefact remplacé sans régénérer la baseline passe toutes
+    # les suites et partirait en production sans elle.
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          # La gate charge le pipeline servi : elle a besoin de la MÊME version
+          # de scikit-learn que le service, pas de celle de l'environnement de
+          # dev, sous peine de comparer une désérialisation approximative.
+          cache-dependency-path: services/model/requirements.txt
+      - name: Installation des dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/model/requirements.txt
+      - name: Quality gate — modèle servi
+        run: python scripts/quality_gate.py
+      - name: Rapport de gate (artefact)
+        if: always()
+        run: python scripts/quality_gate.py --json > quality_gate.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-gate-report
+          path: quality_gate.json
+          retention-days: 30
+
+  build-and-push:
+    needs: [test, quality-gate]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: write }
@@ -87,3 +122,144 @@ jobs:
           tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  smoke-e2e:
+    # Les suites pytest testent chaque service avec ses voisins bouchonnés :
+    # aucune ne vérifie que la pile assemblée démarre. Trois pannes ne sont
+    # observables qu'ici — une dépendance absente de l'image, un `depends_on`
+    # mal ordonné, et une URL de reverse-proxy erronée — et toutes se
+    # manifesteraient en production, pas en revue de code.
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Démarrage de la pile
+        # Périmètre explicite : MLflow et Grafana sont hors du chemin critique
+        # d'une prédiction. Les inclure allongerait le job et exposerait la
+        # validation du service à la panne d'un outil d'observation.
+        run: >
+          docker compose up -d --build --wait --wait-timeout 300
+          model backend feedback frontend prometheus
+      - name: Les 4 services applicatifs sont healthy
+        run: |
+          set -euo pipefail
+          for service in model backend feedback frontend; do
+            id=$(docker compose ps -q "$service")
+            state=$(docker inspect -f '{{.State.Health.Status}}' "$id")
+            echo "$service : $state"
+            [ "$state" = "healthy" ] || { echo "::error::$service n'est pas healthy"; exit 1; }
+          done
+      - name: Contrat servi exposé par /info
+        run: |
+          set -euo pipefail
+          info=$(curl -fsS http://localhost:8000/info)
+          echo "$info"
+          echo "$info" | grep -q '"model_version": *"v3' \
+            || { echo "::error::version servie inattendue"; exit 1; }
+          echo "$info" | grep -q 'feature_columns_forced' \
+            && { echo "::error::la neutralisation serveur est de retour (#7)"; exit 1; }
+          echo "$info" | grep -q 'nationalite_hors_ue' \
+            || { echo "::error::nationalite_hors_ue absente du contrat (#7)"; exit 1; }
+      - name: Bout en bout — formulaire → nginx → backend → model
+        run: |
+          set -euo pipefail
+          # Passe par :8088/api/, donc par le reverse-proxy : c'est le chemin
+          # réel du conseiller. Appeler le backend en direct laisserait la
+          # configuration nginx non testée.
+          reponse=$(curl -fsS -X POST http://localhost:8088/api/score \
+            -H 'Content-Type: application/json' \
+            -d '{"age":35,"anciennete_poste_ans":3.5,"niveau_diplome":"Bac+2",
+                 "code_rome_vise":"M1607","est_allocataire":1,"departement":"75",
+                 "famille_thematique":"reconversion et besoin de formation",
+                 "nationalite_hors_ue":0}')
+          echo "$reponse"
+          echo "$reponse" | grep -qE '"(classe|prediction)"' \
+            || { echo "::error::réponse /score inexploitable"; exit 1; }
+      - name: Un payload à 7 champs est refusé (contrat v3.0.0)
+        run: |
+          set -euo pipefail
+          # Le durcissement du contrat doit être vérifié POSITIVEMENT : sans ce
+          # test, un schéma redevenu permissif passerait inaperçu.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8088/api/score \
+            -H 'Content-Type: application/json' \
+            -d '{"age":35,"anciennete_poste_ans":3.5,"niveau_diplome":"Bac+2",
+                 "code_rome_vise":"M1607","est_allocataire":1,"departement":"75",
+                 "famille_thematique":"reconversion et besoin de formation"}')
+          [ "$code" = "422" ] || { echo "::error::attendu 422, obtenu $code"; exit 1; }
+      - name: Prometheus scrape bien les deux cibles
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/metrics | head -5
+          curl -fsS http://localhost:8001/metrics | grep -q backend_score_calls_total \
+            || { echo "::error::compteur métier absent"; exit 1; }
+      - name: Aucune donnée sensible dans les logs (condition C2 de J0)
+        run: |
+          set -euo pipefail
+          # `nationalite_hors_ue` est désormais collectée : la contrepartie de
+          # l'arbitrage J0 est qu'elle ne fuite ni dans les logs applicatifs,
+          # ni dans l'exposition Prometheus.
+          if docker compose logs --no-color model backend | grep -qi 'nationalite'; then
+            echo "::error::la nationalité apparaît dans les logs applicatifs"
+            exit 1
+          fi
+          if curl -fsS http://localhost:8000/metrics | grep -qi 'nationalite'; then
+            echo "::error::la nationalité est exposée en label Prometheus"
+            exit 1
+          fi
+      - name: Logs en cas d'échec
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+      - name: Arrêt de la pile
+        if: always()
+        run: docker compose down -v
+
+  deploy:
+    # Uniquement sur tag `v*`, et derrière un environnement GitHub : la
+    # protection de branche ne suffit pas, c'est l'`environment` qui porte la
+    # validation manuelle et les secrets de la cible.
+    #
+    # Ce job ne pousse pas de nouvelles images : il PROMEUT par retag celles
+    # que `build-and-push` a déjà produites et que `smoke-e2e` a validées.
+    # Reconstruire ici déploierait un binaire que personne n'a testé.
+    needs: [build-and-push, smoke-e2e]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    permissions: { contents: read, packages: write }
+    strategy:
+      max-parallel: 1
+      matrix:
+        service: [model, backend, feedback, frontend]
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promotion de l'image ${{ matrix.service }} en `latest`
+        run: |
+          set -euo pipefail
+          IMG="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')-${{ matrix.service }}"
+          docker buildx imagetools create -t "$IMG:latest" "$IMG:${GITHUB_REF_NAME}"
+          echo "$IMG:${GITHUB_REF_NAME} → $IMG:latest" >> "$GITHUB_STEP_SUMMARY"
+
+  release-notes:
+    needs: deploy
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: quality-gate-report
+      - name: Attacher le rapport de gate à la release
+        # Le rapport de gate est la pièce justificative du déploiement : il dit
+        # quel modèle, quelle version et quelles métriques ont été mises en
+        # service. Le rattacher à la release rend la mise en production
+        # auditable après coup, ce qu'exige un système Annexe III.
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes quality_gate.json || \
+             gh release upload "$GITHUB_REF_NAME" quality_gate.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

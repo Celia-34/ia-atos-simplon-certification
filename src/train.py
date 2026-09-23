@@ -16,6 +16,12 @@ import numpy as np
 import pandas as pd
 import sklearn
 
+try:  # Import tolérant : `src.train` est chargé aussi bien comme module du
+    # package `src` (scripts) que par chemin depuis le notebook.
+    from src import tracking
+except ImportError:  # pragma: no cover - dépend du sys.path de l'appelant
+    import tracking
+
 MODELS_DIR = Path("..") / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 N_APPELS_LATENCE = 1000
@@ -63,6 +69,12 @@ def save_metadata(chemin_modele, metadata: dict) -> Path:
     Les informations d'environnement (date, versions, taille du fichier) sont ajoutées
     automatiquement ; ``metadata`` porte le contexte métier fourni par l'appelant
     (scénario, hyperparamètres, features, métriques, seuils, commit Git...).
+
+    Le même contenu est poussé vers MLflow **si et seulement si**
+    ``MLFLOW_TRACKING_URI`` est définie (cf. ``src/tracking.py``). Le fichier
+    JSON reste écrit dans tous les cas : c'est lui qui fait foi, MLflow n'est
+    qu'une vue comparative par-dessus. Ce branchement ici, plutôt qu'à l'appel,
+    évite de modifier le notebook — clos depuis la phase 3.
     """
     chemin_modele = Path(chemin_modele)
     chemin_metadata = chemin_modele.with_suffix(".metadata.json")
@@ -81,6 +93,13 @@ def save_metadata(chemin_modele, metadata: dict) -> Path:
     }
     chemin_metadata.write_text(
         json.dumps(charge_utile, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    tracking.log_run(
+        nom=f"{charge_utile.get('scenario', 'run')}-{charge_utile.get('modele', chemin_modele.stem)}",
+        metadata=charge_utile,
+        artefacts=[chemin_metadata],
+        tags={"etape": "entrainement", "source": "notebook"},
     )
     return chemin_metadata
 

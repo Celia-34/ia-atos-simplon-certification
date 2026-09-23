@@ -40,6 +40,8 @@ from preprocess import (  # noqa: E402
 )
 from promotion import PromotionDecision, decide_promotion  # noqa: E402
 
+from src import tracking  # noqa: E402
+
 MODELS = ROOT / "services" / "model" / "models"
 PROD_SCORED_PATH = DATA / "prod_scored.csv"
 REFERENCE_PATH = DATA / "reference_set.csv"
@@ -172,6 +174,19 @@ def main() -> int:
     production_metrics = evaluate_on_reference(joblib.load(PRODUCTION_PATH))
     decision = decide_promotion(candidate_metrics, production_metrics)
     write_decision(decision, candidate_metrics, production_metrics, unused_count)
+
+    # `decisions_log.jsonl` reste le journal qui fait foi — append-only,
+    # versionné, lisible sans serveur. MLflow reçoit le même arbitrage pour
+    # le rendre comparable aux runs d'entraînement du notebook ; s'il est
+    # indisponible, la boucle continue sans rien perdre.
+    tracking.log_decision_promotion(
+        candidate_metrics=candidate_metrics,
+        production_metrics=production_metrics,
+        promote=decision.promote,
+        reason=decision.reason,
+        feedback_count=unused_count,
+        dataset_sha256=dataset_hash(X_train, y_train),
+    )
 
     if not decision.promote:
         print(json.dumps({"promote": False, "reason": decision.reason}, ensure_ascii=False))

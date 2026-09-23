@@ -30,6 +30,14 @@ pandas>=2.2,<3
 # --- Journalisation (préférée au logging stdlib) ---------------------------
 loguru>=0.7,<1
 
+# --- Tracking d'expériences ------------------------------------------------
+# Absent des images de service : le tracking est une activité HORS LIGNE
+# (notebook, scripts/retrain.py). Un conteneur d'inférence n'a rien à écrire
+# dans un serveur d'expériences, et l'y autoriser élargirait sa surface pour
+# rien. `src/tracking.py` dégrade en no-op si le paquet ou le serveur manque,
+# donc cette dépendance reste non bloquante.
+mlflow>=2.17,<3
+
 # --- Visualisation (notebook uniquement) -----------------------------------
 matplotlib==3.9.2
 seaborn==0.13.2

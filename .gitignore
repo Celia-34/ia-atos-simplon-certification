@@ -40,6 +40,11 @@ services/model/models/emploi_retour_candidate.joblib
 # Logs runtime des services
 services/*/logs/
 
+# Tracking MLflow : base de métadonnées et artefacts du serveur local. Ce qui
+# fait foi côté livrables reste versionné (benchmark.md, *.metadata.json,
+# decisions_log.jsonl) ; `mlruns/` n'en est qu'une vue reconstructible.
+mlruns/
+
 # Cache HuggingFace
 .cache/
 ~/.cache/huggingface/

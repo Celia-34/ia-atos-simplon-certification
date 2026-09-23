@@ -84,3 +84,29 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+
+  mlflow:
+    # Serveur de tracking des experiences (hors ligne). Aucun service applicatif
+    # n'en depend : `model`, `backend`, `feedback` et `frontend` demarrent et
+    # servent normalement si MLflow est absent. C'est deliberé — un serveur de
+    # metadonnees indisponible ne doit jamais empecher de servir une prediction.
+    #
+    # Backend SQLite (et non un simple `file:`) : le Model Registry, qui porte
+    # le cycle Staging -> Production sur lequel se branche `scripts/promotion.py`,
+    # exige un backend relationnel.
+    image: ghcr.io/mlflow/mlflow:v2.17.2
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlruns/mlflow.db
+      --default-artifact-root /mlruns/artifacts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 3
