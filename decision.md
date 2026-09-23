@@ -1,6 +1,6 @@
 # Synthèse des décisions — Étapes 1 à 5
 
-> Ce document consolide les décisions importantes prises pendant les 5 premières phases du cas d'usage (Cadrer, Explorer, Préparer, Modéliser & comparer, Arbitrer), telles que documentées dans le notebook (`journal-de-bord.ipynb`, canvas), `criteria.md`, `scenarii.md` et `baseline.md`.
+> Ce document consolide les décisions importantes prises pendant les 5 premières phases du cas d'usage (Cadrer, Explorer, Préparer, Modéliser & comparer, Arbitrer), telles que documentées dans le notebook (`notebooks/certification-cas-usage.ipynb`), `criteria.md`, `scenarii.md` et les fichiers de résultats générés automatiquement. Le journal de bord (`journal-de-bord.ipynb`) trace la chronologie et les hésitations ; ce document trace les décisions arrêtées.
 
 ---
 
@@ -8,9 +8,9 @@
 
 ### Nature de la tâche ML
 
-**Choix** : Classification supervisée multi-classe (3 classes : 0 = retour rapide <6 mois, 1 = retour moyen 6-12 mois, 2 = risque de longue durée >12 mois), sur données hybrides (tabulaires + texte libre).
+**Choix** : Classification supervisée multi-classe (3 classes : 0 = retour rapide <6 mois, 1 = retour moyen 6-12 mois, 2 = risque de longue durée >12 mois), sur données mixtes (numériques, catégorielles et — initialement — textuelles).
 
-**Justification** : Besoin métier de l'agence de classer le délai potentiel de retour à l'emploi d'un usager.
+**Justification** : Besoin métier de l'agence de classer le délai potentiel de retour à l'emploi d'un usager. *Mise à jour phase 2 : l'EDA a montré que la colonne textuelle se réduit à 9 modalités ; la tâche est en réalité une classification sur données strictement tabulaires (cf. Étape 2).*
 
 ### Critère de succès prioritaire (métrique dominante)
 
@@ -48,9 +48,9 @@
 
 ### Gestion des manquants
 
-**Choix** : Conserver les lignes avec manquants pour `age` (122, 4,9 %), `niveau_diplome` (84, 3,4 %) et `est_allocataire` (44, 1,8 %), avec une stratégie d'imputation à définir en préparation ; pour `synthese_entretien` (81 manquants, 3,2 %), possibilité d'écarter ces lignes.
+**Choix** : Conserver les lignes avec manquants pour `age` (122, 4,9 %), `niveau_diplome` (84, 3,4 %) et `est_allocataire` (44, 1,8 %), avec une stratégie d'imputation à définir en préparation ; pour `synthese_entretien` (81 manquants, 3,2 %), l'option d'écarter ces lignes avait été envisagée mais **n'a finalement pas été retenue** : l'absence de synthèse est devenue une modalité à part entière, `texte_manquant`.
 
-**Justification** : Pour `synthese_entretien`, "seul 81 absent sur 2450 lignes, c'est faible, on pourra donc les écarter" ; pour les autres variables, "on mettra en place une stratégie pour conserver les lignes avec des valeurs manquantes."
+**Justification** : Pour `synthese_entretien`, le constat initial était "seul 81 absent sur 2450 lignes, c'est faible, on pourra donc les écarter" ; le passage à une variable catégorielle a rendu ce retrait inutile — une 10ᵉ modalité explicite conserve les lignes, évite d'introduire un biais de sélection et rend l'absence de synthèse auditable en tant que telle (son recall classe 2 est d'ailleurs suivi en §7.2). Pour les autres variables, "on mettra en place une stratégie pour conserver les lignes avec des valeurs manquantes."
 
 ### Gestion des valeurs erratiques / aberrantes
 
@@ -70,21 +70,50 @@
 
 **Justification** : Disparate impact confirmé empiriquement (ratio ×2,46 UE/hors UE ; écart de 32,4 points par tranche d'âge ; écart de 34,2 points par diplôme ; écarts territoriaux de 9,7 % à 39 %).
 
-### Traitement des données textuelles (`synthese_entretien`)
+### Nature réelle de `synthese_entretien` : 9 templates, pas du texte libre
 
-**Choix** : Nettoyage léger, remplacement des manquants par une chaîne vide + indicateur `texte_manquant`, anonymisation (détection téléphone/email), classification zero-shot avec une taxonomie de 9 familles thématiques via CamemBERT (`cmarkea/distilcamembert-base-nli`) exécuté en local.
+**Choix** : `synthese_entretien` n'est pas traitée comme une donnée textuelle libre mais comme une **variable catégorielle à 10 modalités** (9 familles thématiques + `texte_manquant`).
 
-**Justification** : Exécution locale car "aucune donnée n'est envoyée à un service externe" (protection RGPD) ; approche zero-shot retenue car "les commentaires ne disposent d'aucun label thématique fiable", rendant un fine-tuning supervisé non pertinent.
+**Justification** : L'EDA (§3.1, §3.3.2.1) établit que la colonne ne contient que **9 formulations uniques**, réutilisées telles quelles sur **2 419 des 2 500 lignes** (81 manquants, 3,2 %) ; `nunique` brut = `nunique` après nettoyage = 9, aucune variante n'est fusionnée par le nettoyage. Il n'y a donc ni vocabulaire ouvert, ni fautes de saisie, ni bruit stochastique à absorber : l'information utile tient intégralement dans l'identité du template. Distribution des 9 modalités : de 202 (8,1 %) à 338 occurrences (13,5 %), plus 81 `texte_manquant` (3,2 %).
+
+### Méthode ayant produit les 9 familles thématiques (trace historique)
+
+**Choix** : Les 9 libellés de familles ont été produits **une seule fois, hors pipeline**, par classification zero-shot avec CamemBERT (`cmarkea/distilcamembert-base-nli`, 68 M de paramètres) exécuté en local, le 22/09/2026. Le résultat est figé dans `data/referentiel_familles.csv` (9 lignes : template, famille, score de confiance, modèle, date d'étiquetage). En aval, la dérivation de la famille est un **simple `map` déterministe** sur ce référentiel (`src/pipeline_texte.assigner_famille`).
+
+**Justification** : Les commentaires ne disposaient d'aucun label thématique fiable et l'étiquetage manuel par le métier n'était pas accessible ; le zero-shot local a servi d'outil d'étiquetage ponctuel (aucune donnée envoyée à un service externe). La première taxonomie (9 familles génériques : mobilité géographique, formation, compétences numériques, expérience professionnelle, freins administratifs, santé, situation familiale, projet professionnel, autre) avec un seuil de confiance de 0,5 laissait **7 templates sur 9 sous le seuil** (72,2 % des lignes non étiquetées) : les libellés ont été reformulés pour être mutuellement exclusifs et alignés sur le vocabulaire effectif des templates, aboutissant à une correspondance **strictement 1-1** avec des scores de 0,72 à 0,93. Comme il n'y a que 9 textes possibles, le référentiel est exhaustif par construction : **aucune inférence de modèle de langue n'est nécessaire ni à l'entraînement ni en production** (contrat vérifié par `tests/test_referentiel_familles.py`, qui lève une erreur si un texte du dataset n'est pas mappé).
+
+### Association template ↔ classe cible : signal très fort, à documenter
+
+**Choix** : Le signal porté par la famille thématique est explicitement qualifié d'**association très forte, quasi déterministe** (§3.7), et **nettement plus discriminant que n'importe quelle variable tabulaire**. Ce constat est assumé et signalé comme une limite du jeu de données, pas comme une performance du modèle.
+
+**Justification et nuance chiffrée** : le croisement template × `classe_retour_emploi` (§3.5, `crosstab` normalisée par ligne) donne trois groupes nets :
+- 3 templates « profil sans frein » (profil autonome, compétences techniques à jour, dynamisme) → 68,0 % à 71,7 % de classe 0 ;
+- 3 templates « frein léger » (compétences numériques, mobilité géographique, reconversion) → 74,6 % à 78,4 % de classe 1 ;
+- 3 templates « freins cumulés » (cumul de difficultés, perte de confiance, freins périphériques) → 44,6 % à 48,0 % de classe 2.
+
+**Ce signal n'est cependant pas une fuite de cible au sens strict** : la vérification menée en §3.3.2.1 conclut qu'**aucun template ne mentionne le délai de retour à l'emploi ni une décision déjà prise par le conseiller**. Il s'agit d'un diagnostic formulé par un conseiller au moment de l'entretien, donc d'une information disponible **avant** la cible, et non d'une information dérivée de la cible.
+
+**Réserve honnête à porter en soutenance** : (1) la pureté maximale observée est de **78,4 %**, aucune modalité n'est pure à 100 % — la formule « quasi déterministe » de §3.7 est plus forte que ce que montrent les données, et la mesure d'association (V de Cramér, khi²) **n'a pas été calculée** ; (2) le jeu de données est synthétique et ces 9 templates ont très probablement été générés **à partir** de la classe cible lors de sa fabrication — sur des verbatims réels, le signal serait moins propre et la performance de S1 se dégraderait ; (3) c'est précisément pour cette raison que S3 (famille seule) est écarté : il plafonne à 19,1 % de taux d'erreur grave, ce qui montre que le signal, aussi fort soit-il, ne suffit pas à décider seul.
 
 ### Risque de biais encodé dans le texte
 
-**Choix** : Les 9 templates de commentaires sont audités par sous-groupe sensible (nationalité, diplôme, âge) avant usage.
+**Choix** : Les 9 templates ont été audités par sous-groupe sensible (nationalité, diplôme, tranche d'âge) avant usage, y compris **à classe constante**, avec un seuil d'effectif fiable fixé à 30 (§3.6.2).
 
-**Justification** : Certaines formulations ("barrière de la langue", "illettrisme numérique") peuvent encoder indirectement des variables sensibles déjà identifiées ; leur usage doit être audité au même titre que les proxys tabulaires.
+**Justification** : Certaines formulations ("barrière de la langue", "illettrisme numérique") peuvent encoder indirectement des variables sensibles déjà identifiées ; leur usage doit être audité au même titre que les proxys tabulaires. Conclusion de l'audit : l'association passe **essentiellement par la classe cible, et non par un biais rédactionnel propre au template**. Le passage à une variable catégorielle rend d'ailleurs cet audit directement lisible (9 modalités nommées), ce qui n'était pas le cas avec une représentation vectorielle où le biais se diluait sur des dizaines de colonnes.
+
+### Minimisation RGPD renforcée par la dérivation de la famille
+
+**Choix** : Une fois `famille_thematique` dérivée, le **verbatim brut n'est plus nécessaire en aval**. Ni l'entraînement, ni le modèle persisté, ni l'API ne manipulent de texte libre : l'API reçoit une modalité parmi 10.
+
+**Justification** :
+- **Minimisation (RGPD art. 5.1.c)** : la donnée transmise et stockée passe d'un commentaire de conseiller — potentiellement porteur de PII résiduelles, de jugements de valeur et d'informations de santé ou de situation familiale — à un **libellé catégoriel non nominatif**. C'est une réduction effective de l'assiette de données traitée, pas une simple précaution de traitement.
+- **Anonymisation recentrée** : la détection/suppression de PII (téléphone, e-mail) ne sert plus qu'à l'**étape d'étiquetage initiale**, en amont et hors ligne. Elle n'est plus une dépendance du service en production, donc plus un point de défaillance RGPD à l'exécution. (Contrôle §3.3.2.1 : 0 pattern téléphone et 0 e-mail détectés sur les 9 templates.)
+- **Aucun modèle de langue embarqué** : aucune inférence de transformeur n'a lieu en production ; il n'y a donc ni risque de mémorisation de données d'entraînement par un modèle de langue, ni sortie non déterministe à auditer, ni dépendance à un modèle tiers dont la provenance des données d'entraînement n'est pas maîtrisée.
+- **Auditabilité (AI Act, système à haut risque)** : le mapping texte → famille est un fichier CSV de 9 lignes versionné en dépôt. Il est lisible, opposable et rejouable à l'identique, ce qu'un modèle zero-shot de 68 M de paramètres ne permet pas.
 
 ### Scénarios de données retenus (issus de l'EDA)
 
-**Choix** : Quatre scénarios principaux — S1 (multimodal complet), S2 (sans variables sensibles), S3 (texte seul), S4 (tabulaire seul) — complétés par des sous-scénarios S4a-e (ablation d'un proxy à la fois).
+**Choix** : Quatre scénarios principaux — S1 (multimodal complet), S2 (sans variables sensibles), S3 (famille thématique seule), S4 (tabulaire seul) — complétés par des sous-scénarios S4a-e (ablation d'un proxy à la fois) et par un témoin S4-all (les 7 variables de S1 sans la famille thématique).
 
 **Justification** : Comparer plusieurs configurations de données pour évaluer le compromis performance / éthique associé à chaque variable (détail dans `scenarii.md`).
 
@@ -119,12 +148,12 @@
 ### Détail des 4 scénarios principaux
 
 **Choix** :
-- S1 (multimodal complet) : toutes les variables non directement sensibles + TF-IDF du texte concaténé.
-- S2 (éthique, sans sensibles) : retrait de `nationalite_hors_ue`, `age`, `niveau_diplome`, `departement`.
-- S3 (texte seul) : `synthese_entretien` uniquement, imputation par chaîne vide + TF-IDF.
+- S1 (multimodal complet) : `age`, `nationalite_hors_ue`, `niveau_diplome`, `anciennete_poste_ans`, `code_rome_vise`, `est_allocataire`, `departement` + `famille_thematique` (8 features → 163 colonnes après encodage).
+- S2 (éthique, sans sensibles) : retrait de `nationalite_hors_ue`, `age`, `niveau_diplome`, `departement` → `anciennete_poste_ans`, `code_rome_vise`, `est_allocataire`, `famille_thematique` (4 features → 63 colonnes).
+- S3 (famille thématique seule) : `famille_thematique` uniquement (1 feature → 10 colonnes).
 - S4 (tabulaire seul) : `age`, `niveau_diplome`, `anciennete_poste_ans`, `departement`, imputation par médiane (numériques) / modalité la plus fréquente (catégorielles).
 
-**Justification** : S2 applique les principes de minimisation, non-discrimination et protection des données dès la conception (RGPD/CNIL) ; S3 mesure la robustesse du signal textuel seul ; S4 sert de référence face à S3 pour mesurer le gain apporté par la multimodalité.
+**Justification** : S2 applique les principes de minimisation, non-discrimination et protection des données dès la conception (RGPD/CNIL) ; S3 mesure le pouvoir prédictif du seul diagnostic d'entretien et fixe sa borne informationnelle ; S4 sert de référence face à S3 pour mesurer le gain apporté par la multimodalité. Le témoin S4-all (S1 privé de `famille_thematique`) isole l'apport net du diagnostic d'entretien.
 
 ### Sous-scénarios S4a-e (ablation de proxies)
 
@@ -140,15 +169,17 @@
 
 ### Pipeline générique (ColumnTransformer)
 
-**Choix** : Pipeline reproductible construit avec `Pipeline` + `ColumnTransformer`, via des fonctions dédiées (`src/pipeline_tabulaire.py`, `src/pipeline_texte.py`, `src/pipeline_tabulaire_hybride.py`).
+**Choix** : Pipeline reproductible unique construit avec `Pipeline` + `ColumnTransformer`, via `src/pipeline_tabulaire.py`. `src/pipeline_texte.py` ne conserve que le chargement du référentiel et l'affectation de la famille thématique (aucun estimateur scikit-learn).
 
-**Justification** : Éviter les transformations one-shot dispersées et garantir la reproductibilité du prétraitement (imputation, encodage, texte).
+**Justification** : Éviter les transformations one-shot dispersées et garantir la reproductibilité du prétraitement. La synthèse d'entretien étant devenue une colonne catégorielle, il n'y a plus qu'**un seul chemin de préprocessing** : le module `src/pipeline_tabulaire_hybride.py`, qui assemblait un bloc tabulaire et un bloc texte vectorisé, a été supprimé (cf. Étape 5).
 
-### Vectorisation du texte
+### Encodage de la synthèse d'entretien
 
-**Choix** : TF-IDF (`TfidfVectorizer(max_features=300, min_df=2)`), ajusté sur le train uniquement.
+**Choix** : `OneHotEncoder(handle_unknown="ignore")` sur `famille_thematique` (10 modalités), dans le même `ColumnTransformer` que `code_rome_vise` et `departement`. La vectorisation TF-IDF (`TfidfVectorizer(max_features=300, min_df=2)`, qui produisait 68 termes effectifs) a été **supprimée**.
 
-**Justification** : Non détaillée explicitement dans les documents au-delà de l'usage standard en NLP pour le scénario S3 — choix des hyperparamètres non justifié en détail dans les sources disponibles.
+**Justification** : Dépenser 68 colonnes pour ré-encoder une information à 9 modalités est une perte de parcimonie et d'explicabilité sans contrepartie. La comparaison avant/après menée en §5.2.1 bis (5-fold CV, train uniquement, mêmes folds, modèles en configuration par défaut) montre que le one-hot **ne dégrade rien et améliore légèrement** : Δ F1 macro moyen **+0,004**, Δ recall classe 2 moyen **+0,006**, Δ taux d'erreur grave moyen **−0,1 point**. Le gain est concentré sur S1/RandomForest (**+0,027** de F1 macro, **+0,033** de recall classe 2, **−1,6 point** d'erreur grave). Contrôles de non-régression : S3 strictement identique (0,635 / 0,660 / 19,1 % avant comme après) et témoin S4-all inchangé à 10⁻³ près — ce qui confirme que l'écart observé vient bien du changement de représentation et non d'un effet de bord du refactor.
+
+> Note de traçabilité : l'hyperparamétrage TF-IDF (`max_features=300`, `min_df=2`) n'avait jamais été justifié explicitement dans les sources du projet. Cette dette documentaire est désormais sans objet, la vectorisation ayant été retirée.
 
 ### Assertions qualité avant modélisation
 
@@ -190,17 +221,17 @@
 
 **Justification** : "balanced" équilibre selon la fréquence des classes, mais ne cible pas spécifiquement l'erreur 2→0 ; le poids {0:1,1:1,2:3} vise à pénaliser 3 fois plus fort les erreurs sur la classe 2, dans l'objectif de réduire spécifiquement le taux d'erreur grave.
 
-### Élimination de HistGradientBoostingClassifier
+### Sort de `HistGradientBoostingClassifier`
 
-**Choix** : HGB écarté après le benchmark initial, non rejoué avec les hyperparamètres affinés.
+**Choix** : HGB a été écarté une première fois après le benchmark initial, puis **réintégré** lors de la phase d'optimisation : deux de ses variantes (`class_weight="balanced", max_depth=10` et `class_weight={0:1,1:1,2:3}`) figurent parmi les trois finalistes comparés en §5.6, avant d'être finalement écartées au profit de RandomForest.
 
-**Justification** : Sur la métrique prioritaire (recall classe 2), il est nettement dominé par LogisticRegression et RandomForestClassifier sur chaque scénario où les modèles se différencient, sans compensation suffisante sur le taux d'erreur grave (recall classe 2 systématiquement le plus faible, ex. 0,376 sur S1, 0,293 sur S4-age-dip).
+**Justification** : L'élimination initiale reposait sur son recall classe 2 systématiquement le plus faible (ex. 0,561 sur S1, 0,290 sur S4-age-dip en configuration par défaut). Le réglage de `class_weight` et de `max_depth` a corrigé ce défaut — la variante `balanced, max_depth=10` atteint le meilleur F1 macro du benchmark CV (**0,706** sur S1, taux d'erreur grave 10,2 %) — mais, en sous-validation, `RandomForestClassifier(n_estimators=300)` la domine sur toutes les métriques prioritaires. Son seul avantage résiduel est la sobriété : **0,806 Mo contre 27,5 Mo**, soit 34× plus léger, et une latence p95 plus faible. Cet argument n'a pas suffi, 27,5 Mo restant parfaitement gérable pour un service conteneurisé.
 
 ### Métriques retenues et priorisation
 
 **Choix** : F1 macro, recall classe 2, F1 classe 2, taux d'erreur grave 2→0 (prioritaire), taux d'erreur 0→2 ; accuracy reléguée en indicateur secondaire ; ROC-AUC et métriques de régression (RMSE/MAE/R²) explicitement exclues.
 
-**Justification** : L'accuracy peut être trompeuse sur une cible déséquilibrée (ex. S3 a la meilleure accuracy 0,652 mais un taux d'erreur grave de 19,1 %, très au-dessus du seuil de 5 % visé). ROC-AUC n'est pas directement interprétable pour arbitrer sur l'erreur asymétrique prioritaire ; RMSE/MAE/R² sont des métriques de régression, non applicables à une classification multi-classe.
+**Justification** : L'accuracy peut être trompeuse sur une cible déséquilibrée (ex. S3 obtient une accuracy honorable de 0,652 mais un taux d'erreur grave de 19,1 %, très au-dessus du seuil de 5 % visé). ROC-AUC n'est pas directement interprétable pour arbitrer sur l'erreur asymétrique prioritaire ; RMSE/MAE/R² sont des métriques de régression, non applicables à une classification multi-classe. À partir de §5.2, une **matrice de coût métier** (arbitraire, à faire valider par le métier) et un **coût métier total en euros** complètent ces métriques : ils rendent l'arbitrage recall / erreur grave comparable sur une échelle unique.
 
 ### Hyperparamètres testés
 
@@ -210,9 +241,9 @@
 
 ### Choix du scénario / modèle final
 
-**Choix** : Scénario **S1** (tabulaire complet + texte) avec `LogisticRegression(class_weight="balanced")` (configuration par défaut).
+**Choix** : Scénario **S1** (tabulaire complet + `famille_thematique`) avec `RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42)`.
 
-**Justification** : Cette configuration obtient le meilleur F1 macro de tout le benchmark (0,661 en validation croisée, 0,659 sur le test set) et un recall classe 2 élevé (0,674 en CV, 0,644 sur le test set), pour un taux d'erreur grave de 13,8 % en CV et 11,1 % sur le test set. Ce taux, supérieur au seuil de 5 % visé par `criteria.md`, est jugé acceptable à la condition d'un **arbitrage systématique par un conseiller humain** sur chaque prédiction (cf. Étape 5) : le modèle ne prend jamais seul de décision affectant l'usager, il sert à prioriser et alerter.
+**Justification** : Sur le test set (§5.6.2, utilisé une seule fois), cette configuration obtient une accuracy de **0,714**, un F1 macro de **0,690**, un recall classe 2 de **0,589**, un F1 classe 2 de **0,570**, un taux d'erreur grave 2→0 de **10,0 %** et un taux d'erreur 0→2 de **4,8 %**. Matrice de confusion : `[[142, 36, 9], [27, 162, 34], [9, 28, 53]]` — sur les 90 usagers réellement en classe 2, 53 sont détectés et 9 sont classés à tort en classe 0. Le taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, n'est jugé acceptable qu'à la condition d'une **revue par un conseiller humain** sur 20% des dossiers à risques.
 
 ### Courbes d'apprentissage / early stopping
 
@@ -222,19 +253,19 @@
 
 ### Persistance du modèle final
 
-**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s1_logistic_regression.joblib`.
+**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s1_RandomForestClassifier__n_estimators_300_.joblib` (34,4 Mo), accompagné d'un `.metadata.json` versionnant les librairies, le commit git, les features d'entrée, les seuils de validation manuelle et les métriques de test.
 
-**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation).
+**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation) et pour la traçabilité exigée d'un système à haut risque. Le modèle servi (`services/model/models/emploi_retour_s1.joblib`, v2.0.0) est exporté depuis cet artefact par `scripts/export_model_prod.py`.
 
 ### Constat sur la cible de recall classe 2
 
-**Choix** : Le recall classe 2 obtenu (0,644 sur le test set, 0,674 en CV) reste en-deçà de la cible de 0,80 fixée dans `criteria.md`, mais représente le meilleur résultat parmi toutes les configurations testées.
+**Choix** : Le recall classe 2 obtenu (**0,589** sur le test set, 0,660 en CV) reste nettement en-deçà de la cible de 0,80 fixée dans `criteria.md` ; le taux d'erreur grave (10,0 %) reste au double du seuil de 5 %. Les deux écarts sont assumés et documentés plutôt que masqués.
 
-**Justification** : Le modèle tabulaire+texte atteint un compromis correct mais insuffisant pour le critère de succès le plus exigeant ; c'est la meilleure performance disponible dans la famille de modèles retenue (cf. Étape 1).
+**Justification** : Le benchmark montre qu'aucune configuration testée n'atteint simultanément les deux cibles : la configuration au meilleur recall classe 2 (`RandomForestClassifier(min_samples_leaf=5)` sur S1, recall **0,754**) dégrade le taux d'erreur grave à 13,5 %, et celle au meilleur taux d'erreur grave (S4-all, 8,3 %) perd le bénéfice du diagnostic d'entretien. L'arbitrage retenu compense ce déficit par le filet de sécurité humain (§7.2) plutôt que par un réglage qui déplacerait simplement le problème.
 
 ### Points restant à traiter avant mise en production
 
-**Choix** : L'audit d'équité par sous-groupe (recall classe 2 par nationalité, âge, diplôme) reste à mener ; seule la famille ML classique a été testée ; pas de recherche d'hyperparamètres exhaustive (GridSearch).
+**Choix** : L'audit d'équité par sous-groupe a depuis été exécuté (§7.2) et **échoue au critère de `criteria.md`** (écarts de 27 à 44 points contre une cible de 10 points) : c'est désormais le point bloquant n°1. Restent également : une seule famille de modèles testée, pas de recherche d'hyperparamètres exhaustive (GridSearch), pas de mesure d'empreinte carbone, et une matrice de coût métier encore fictive.
 
 **Justification** : Explicitement listé comme limite à traiter avant toute mise en production.
 
@@ -244,67 +275,92 @@
 
 ### Correction du scénario S1 (bug découvert et corrigé)
 
-**Choix** : Le scénario **S1**, décrit dans `scenarii.md` comme "approche multimodale complète" (tabulaire + synthèse d'entretien), était implémenté dans `src/pipeline_tabulaire.py` en **tabulaire seul** (sans vectorisation TF-IDF du texte) — un écart entre le plan documenté et le code. Ce bug a été corrigé : `src/pipeline_tabulaire_hybride.py` a été généralisé (paramètre `tabular_scenario`) pour assembler n'importe quel scénario tabulaire avec le texte. Un scénario **S4-all** a été créé pour désigner explicitement la variante tabulaire-seule (les 6 mêmes variables que S1, sans texte), conservée comme référence de comparaison.
+**Choix** : Le scénario **S1**, décrit dans `scenarii.md` comme "approche multimodale complète" (tabulaire + synthèse d'entretien), était implémenté dans `src/pipeline_tabulaire.py` en **tabulaire seul** — un écart entre le plan documenté et le code. Ce bug a été corrigé en deux temps : d'abord par la généralisation d'un module d'assemblage tabulaire + texte vectorisé (`src/pipeline_tabulaire_hybride.py`), puis, après la requalification de la synthèse en variable catégorielle, par la suppression pure et simple de ce module — `famille_thematique` étant désormais une colonne du `ColumnTransformer` tabulaire. Un scénario **S4-all** a été créé pour désigner explicitement la variante tabulaire-seule (les 7 mêmes variables que S1, sans la famille thématique), conservée comme témoin.
 
-**Justification** : Le code (`src/pipeline_tabulaire.py`, `SCENARIO_FEATURES["s1"]`) ne contenait que des variables tabulaires ; aucune concaténation TF-IDF n'existait pour "s1" avant correction. Ce constat a été fait lors de la rédaction de la section §7 du notebook (analyse de feature importance), où il est apparu que le modèle persisté n'utilisait pas `synthese_entretien` contrairement à sa description.
+**Justification** : Le code (`SCENARIO_FEATURES["s1"]`) ne contenait que des variables tabulaires ; aucune concaténation du texte n'existait pour "s1" avant correction. Ce constat a été fait lors de la rédaction de la section §7 du notebook (analyse de feature importance), où il est apparu que le modèle persisté n'utilisait pas `synthese_entretien` contrairement à sa description.
+
+### Suppression de la couche NLP (zero-shot + TF-IDF)
+
+**Choix** : Retrait complet du zero-shot CamemBERT et de la vectorisation TF-IDF du code, du notebook, des modèles servis, de l'API, des dépendances et de la CI. Le référentiel `data/referentiel_familles.csv` est conservé comme **donnée versionnée** et unique trace exploitable de la méthode d'étiquetage.
+
+**Justification** : Voir le raisonnement complet en Étape 2 (9 templates ⇒ donnée tabulaire). Conséquences chiffrées : métriques **améliorées** en moyenne (Δ F1 macro +0,004, Δ recall classe 2 +0,006, Δ erreur grave −0,1 point, avec +0,027 / +0,033 / −1,6 point sur la configuration retenue S1/RandomForest) ; **~2,5 Go de dépendances retirées** (`torch`, `torchvision`, `transformers`, `sentencepiece`, `protobuf`) ; plus aucune inférence de transformeur, donc un service d'inférence dont la surface d'attaque, l'empreinte et le temps de démarrage sont réduits d'autant. Le changement de représentation a également modifié le classement des finalistes : `RandomForestClassifier(n_estimators=300)` remplace `HistGradientBoostingClassifier(class_weight={0:1,1:1,2:3})` comme modèle retenu.
 
 ### Choix final du modèle/scénario
 
-**Choix** : Scénario **S1** (tabulaire complet + texte) avec `LogisticRegression(class_weight="balanced")`, configuration par défaut.
+**Choix** : Scénario **S1** (tabulaire complet + `famille_thematique`) avec `RandomForestClassifier(n_estimators=300, class_weight="balanced")`.
 
-**Justification** : Cette configuration obtient le meilleur F1 macro de tout le benchmark (0,661 en CV / 0,659 sur le test set) et le meilleur recall classe 2 parmi les configurations retenues (0,674 en CV / 0,644 sur le test set), pour un taux d'erreur grave de 13,8 % en CV et 11,1 % sur le test set. Ce taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, est jugé acceptable à la condition explicite d'un **arbitrage systématique par un conseiller humain** sur chaque prédiction (cf. section fallback ci-dessous) : le modèle ne prend jamais seul de décision affectant l'usager, il sert uniquement à prioriser et alerter.
+**Justification** : Il domine les deux autres finalistes sur toutes les métriques prioritaires en sous-validation (F1 macro 0,703, recall classe 2 0,681, erreur grave 9,7 %, coût métier 73 540 €) et confirme sur le test set (F1 macro **0,690**, recall classe 2 **0,589**, erreur grave **10,0 %**, erreur 0→2 **4,8 %**). Par rapport à l'ancien finaliste `HistGradientBoostingClassifier(class_weight={0:1,1:1,2:3})` de la version antérieure du notebook : **+0,032 de F1 macro, +0,125 de recall classe 2, +0,069 de F1 classe 2, −2,8 points de taux d'erreur grave et −18 380 € de coût métier**. Le taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, n'est acceptable qu'à la condition explicite d'un **arbitrage systématique par un conseiller humain** (cf. section fallback ci-dessous).
 
 **Alternatives considérées et écartées** :
-- S4-all (tabulaire seul, `RandomForestClassifier`) : meilleur taux d'erreur grave (9,4 % en CV) mais F1 macro sous la cible de `criteria.md` (0,627 < 0,65) et recall classe 2 nettement inférieur (0,517 contre 0,674) — écarté car la perte de performance globale est jugée trop importante au regard du gain sur le taux d'erreur grave, ce gain étant de toute façon compensé par l'arbitrage humain systématique retenu pour S1.
-- S3 (texte seul) : recall comparable à S1 (jusqu'à 0,669) mais taux d'erreur grave nettement supérieur (18,2-19,1 %) — écarté.
-- S3+S4-age-dip (texte + 2 proxies) : proche de S1 mais avec moins de variables tabulaires et un taux d'erreur grave supérieur (17,1 %) — écarté.
+- `HistGradientBoostingClassifier(class_weight="balanced", max_depth=10)` sur S1 : meilleur F1 macro du benchmark CV (0,706) et **34× plus léger** (0,806 Mo contre 27,5 Mo), avec une latence p95 plus favorable — écarté car dominé en sous-validation sur le recall classe 2 et le coût métier ; la sobriété ne compensait pas la perte sur la métrique prioritaire.
+- S4-all (les 7 variables tabulaires, sans la famille thématique) : meilleur taux d'erreur grave du benchmark (8,3 % en CV avec `RandomForestClassifier(n_estimators=300)`) mais F1 macro et recall classe 2 inférieurs — écarté car le gain sur l'erreur grave est de toute façon absorbé par l'arbitrage humain retenu pour S1.
+- S3 (famille thématique seule) : recall classe 2 honorable pour une unique variable (0,660) mais taux d'erreur grave presque deux fois plus élevé (19,1 %) — écarté. **La famille thématique n'apporte sa valeur qu'en complément des variables administratives, pas en remplacement.**
+- `RandomForestClassifier(min_samples_leaf=5)` sur S1 : meilleur recall classe 2 de tout le benchmark (0,754) et meilleur coût métier (49 780 €), mais taux d'erreur grave dégradé à 13,5 % — écarté au nom de la priorité donnée à l'erreur asymétrique.
 
 ### Exclusion des familles GenAI / LLM / agents (repris et confirmé en arbitrage)
 
 **Choix** : Seul le ML classique (scikit-learn) est retenu comme famille de modèles ; Deep Learning, SLM local, LLM+RAG et architecture agentique restent écartés.
 
 **Justification** :
-- DL : pas de volume suffisant (2000/500 lignes), explicabilité dégradée pour un gain incertain vs sklearn ; à réévaluer en M6 si le corpus texte grossit.
-- SLM local : hors scope, rôle déjà couvert par le zero-shot CamemBERT utilisé en amont pour classifier les commentaires (pas comme modèle final).
+- DL : pas de volume suffisant (2000/500 lignes), explicabilité dégradée pour un gain incertain vs sklearn ; à réévaluer en M6 si le corpus texte devient réellement du texte libre et grossit.
+- SLM local : hors scope. Un modèle pré-entraîné a bien servi **une seule fois**, hors pipeline, pour étiqueter 9 templates ; le résultat est figé dans un CSV de 9 lignes. Aucun modèle de langue n'est chargé à l'entraînement ni à l'inférence.
 - LLM API + RAG : pas de question ouverte sur corpus documentaire, sortie attendue = classe structurée ; enverrait des données socio-démographiques d'usagers à un tiers sans bénéfice pour une classification structurée.
 - Architecture agentique : une seule prédiction en sortie, pas d'orchestration multi-étapes ni d'actions, aucun besoin d'orchestration.
 
 ### Compromis coût / latence
 
-**Choix** : Aucun chiffrage précis retenu à ce stade pour le modèle final ; seule une appréciation qualitative existe (ML classique = coût "faible" vs DL = "élevé (GPU train)", LLM API+RAG = "élevé (€/token)", architecture agentique = "très élevé").
+**Choix** : Mesures désormais chiffrées sur les trois finalistes (§5.6.2, 1 000 appels `predict` unitaires) : pour le modèle retenu, **27,5 Mo sur disque, 1,37 s de fit, latence p50 27,3 ms / p95 50,1 ms**. Le coût métier est chiffré en euros via la matrice de coût §5.2.1 (73 540 € en sous-validation sur S1).
 
-**Justification** : Non disponible — le tableau §6.1 du notebook renseigne ces colonnes qualitativement, cohérent avec la famille de modèles retenue, mais aucune mesure chiffrée (latence réelle, coût €/1k prédictions) n'a été réalisée. *À instrumenter en production (§8/§9).*
+**Justification** : Ces mesures rendent l'arbitrage sobriété / performance factuel plutôt que qualitatif. Deux réserves subsistent : (1) le coût **€/1 000 prédictions en exploitation réelle** reste à instrumenter (§8/§9) ; (2) l'**empreinte carbone** (kgCO₂eq / 1 000 prédictions) n'a pas été mesurée. À noter : la cible `criteria.md` de p95 < 200 ms est confortablement tenue.
 
 ### Explicabilité du modèle
 
-**Choix** : Coefficients de `LogisticRegression` pour la classe 2 calculés en §7.1 du notebook ; aucun calcul SHAP réalisé à ce stade (optionnel dans le canvas).
+**Choix** : Importance par permutation calculée en §7.1 sur le pipeline final (`RandomForestClassifier`), complétée en §7.2 par une lecture du recall classe 2 par famille thématique. Aucun calcul SHAP réalisé à ce stade (optionnel dans le canvas).
 
-**Justification** : Donne une première lecture globale des variables et termes du vocabulaire les plus influents (probablement `age`, `niveau_diplome` d'après les gradients déjà mesurés en §3.6/§3.7, ainsi que des termes liés aux freins à l'emploi dans le texte), mais ne permet pas d'expliquer une prédiction individuelle avec la même finesse qu'une méthode d'attribution locale.
+**Justification** : Le passage à `famille_thematique` améliore directement l'explicabilité : la synthèse d'entretien occupe désormais **10 colonnes nommées et lisibles par un conseiller** au lieu des 68 termes d'un bloc vectoriel opaque. Un conseiller peut lire « ce dossier est classé à risque notamment parce que la synthèse relève un cumul de freins périphériques », ce qui était impossible avec la représentation précédente. Reste la limite d'une méthode globale : elle n'explique pas une prédiction individuelle avec la finesse d'une méthode d'attribution locale.
 
 ### Fallback / arbitrage humain systématique
 
-**Choix** : Le modèle ne s'abstient jamais et ne décide jamais seul : **chaque prédiction est systématiquement soumise à la validation d'un conseiller humain** avant toute conséquence sur l'accompagnement de l'usager. L'API retourne toujours la classe prédite + les 3 probabilités de classe, avec `decision: "a_arbitrer"`. La confiance du modèle sert uniquement à **prioriser l'ordre de traitement** de la file de validation (priorité haute sous 48h ouvrées pour les dossiers à confiance faible ou avec une probabilité de classe 2 non négligeable même si non prédite ; sous 5 jours ouvrés pour les autres).
+**Choix** : Le modèle ne s'abstient jamais et ne décide jamais seul. Deux règles de validation manuelle sont définies en §5.2.3 et persistées dans les métadonnées du modèle :
+- **Règle A** — si P(classe 2) ≥ **0,40**, le dossier part en validation manuelle quelle que soit la classe prédite (priorité normale, 5 jours ouvrés) ;
+- **Règle B** — si la classe 0 est prédite **et** P(classe 2) ≥ **0,20**, le dossier part également en validation manuelle (risque résiduel d'erreur grave, **priorité haute sous 48 h ouvrées**).
 
-**Justification** : Le taux d'erreur grave du modèle retenu (11,1 % sur le test set) est supérieur au seuil de 5 % visé par `criteria.md`. Ce niveau de risque n'est acceptable que si aucune décision n'est prise automatiquement : c'est la condition de déploiement, pas une option de conception. Le principe général (nécessité d'un human-in-the-loop, pas d'automatisation intégrale) avait par ailleurs été acté dès l'étape 1 (art. 22 RGPD, risque de responsabilité juridique).
+L'API retourne toujours HTTP 200 avec la classe prédite, les 3 probabilités et un champ `decision` ∈ {`a_valider`, `auto`}.
 
-*Note distincte* : un seuil de confiance est aussi défini pour la classification thématique des commentaires (NLP, étape 2), mais ne concerne pas le verdict final du modèle de classification du délai de retour à l'emploi.
+**Justification** : Le taux d'erreur grave du modèle retenu (10,0 % sur le test set) est supérieur au seuil de 5 % visé par `criteria.md`. Ce niveau de risque n'est acceptable que si aucune décision n'est prise automatiquement : c'est la condition de déploiement, pas une option de conception (art. 22 RGPD, acté dès l'étape 1). **Mesure du filet sur le test set (§7.2)** : 128 dossiers signalés sur 500 (**25,6 %**, dont 29 par la seule règle B), pour un coût de revue de **2 560 €** à 20 €/dossier, soit environ 5 € par dossier traité. Sur les 9 erreurs graves du test set, **4 sont rattrapées par le filet (44 %) et 5 ne le sont pas** — ce chiffre est le constat le plus inconfortable du dossier et doit être présenté comme tel.
+
+**Réserves assumées** : (1) le seuil A retenu (0,40) **n'est pas le minimiseur du coût métier** — le balayage §5.2.3 place l'optimum à 0,10, pour un coût de 9 370 € contre 14 450 € à 0,40 ; le choix de 0,40 privilégie une charge de revue soutenable (25,6 % des dossiers au lieu de 63,5 %) et reste un arbitrage à faire trancher par le métier. (2) Le taux d'abstention mesuré (25,6 %) **dépasse la cible de `criteria.md`** (≤ 15 %). (3) La matrice de coût est fictive. (4) Le calcul suppose que les dossiers revus sont corrigés sans erreur, hypothèse à revalider en production (§9.2).
 
 ### Analyse des erreurs critiques et audit d'équité
 
-**Choix** : L'audit d'équité par sous-groupe (recall classe 2 par nationalité, âge, diplôme, département) reste à mener, condition préalable à la mise en production ; le code correspondant est écrit en §7.2 du notebook mais pas encore exécuté avec les vraies données.
+**Choix** : L'audit d'équité par sous-groupe a été **exécuté** en §7.2 sur le test set, et son résultat est un **point bloquant** : le critère de `criteria.md` (écart de recall classe 2 < 10 points entre sous-groupes) n'est pas respecté.
 
-**Justification** : Le modèle retenu (S1) utilise des proxies tabulaires (`age`, `niveau_diplome`, `departement`) et le texte de la synthèse d'entretien, dont le contenu peut encoder indirectement des variables sensibles (templates audités qualitativement en §3.6.2, mais non quantifiés par sous-groupe) : l'audit est nécessaire avant toute mise en production, indépendamment de l'arbitrage humain déjà prévu.
+**Résultats mesurés** (test set, 500 lignes, 90 cas de classe 2) :
+- `nationalite_hors_ue` : recall 0,529 (UE, n=70) contre 0,800 (hors UE, n=20) → **27 points d'écart** ;
+- `niveau_diplome` : de 0,385 (Bac+2) à 0,829 (sans diplôme) → **44 points d'écart** ;
+- tranche d'âge : de 0,333 (41-50 ans) à 0,756 (51-60 ans) ;
+- `famille_thematique` (axe d'audit nouveau, rendu possible par la variable catégorielle) : de **0,000** (réactualisation des compétences numériques, 0/7) et 0,167 (mobilité géographique, 1/6) jusqu'à 0,786 (garde d'enfants / transport, 11/14).
+
+**Justification et réserve statistique** : avec 90 cas de classe 2 sur le test set, plusieurs sous-groupes comptent moins de 10 observations, très en-deçà du seuil de fiabilité de 30 retenu en §3.6. **Aucun de ces écarts ne peut être considéré comme établi** — mais aucun ne peut non plus être écarté. Tant que ce point n'est pas tranché sur un échantillon suffisant, la mise en production ne doit pas être engagée. L'audit reste nécessaire indépendamment de l'arbitrage humain déjà prévu, puisque le modèle utilise des proxies tabulaires (`age`, `niveau_diplome`, `departement`) en plus du diagnostic d'entretien.
 
 ### Message client et recommandation finale
 
-**Choix** : Rédigés en §6.2 et §7.3 du notebook, en langage métier, expliquant le choix de S1 et la nécessité de l'arbitrage humain systématique.
+**Choix** : Rédigés en §6.2 et §7.3 du notebook, en langage métier, expliquant le choix de S1, la nécessité du filet de validation manuelle et les deux réserves bloquantes (équité non établie, erreurs graves non toutes rattrapées).
 
-**Justification** : Permettre au client de comprendre l'arbitrage (performance globale maximale, compensée par un contrôle humain systématique plutôt que par une réduction de la performance) et ses implications opérationnelles.
+**Justification** : Permettre au client de comprendre l'arbitrage (performance globale maximale, compensée par un contrôle humain ciblé plutôt que par une réduction de la performance) et ses implications opérationnelles et budgétaires (~5 € de revue par dossier traité).
+
+---
+
+## Synthèse d'arbitrage — les trois points qu'un jury relèvera
+
+1. **Le signal textuel est artificiellement propre.** `synthese_entretien` se réduit à 9 templates dont l'association à la classe cible est très forte (pureté de 44,6 % à 78,4 %, qualifiée de « quasi déterministe » en §3.7). Ce n'est **pas une fuite de cible au sens strict** — aucun template ne mentionne le délai ni une décision déjà prise (§3.3.2.1) — mais le jeu de données étant synthétique, ces templates ont vraisemblablement été générés à partir de la classe. **Conséquence assumée : les performances de S1 sont une borne haute optimiste et ne se transposeraient pas telles quelles à des verbatims réels.**.
+2. **Les cibles de `criteria.md` ne sont pas atteintes.** Recall classe 2 : 0,589 contre 0,80 visé. Taux d'erreur grave : 10,0 % contre 5 % visé. Taux d'abstention : 25,6 % contre 15 % visé. Écart d'équité : 27 à 44 points contre 10 points visés. Ces écarts sont documentés et non contournés ; c'est le filet humain qui rend le dispositif défendable, pas la performance brute.
+3. **Le retrait du NLP n'a rien coûté et a beaucoup simplifié.** Métriques en légère hausse (+0,004 de F1 macro en moyenne, +0,027 sur la configuration retenue), −2,5 Go de dépendances, un seul chemin de préprocessing, un mapping auditable de 9 lignes, et une minimisation RGPD renforcée (plus de verbatim en aval, plus de modèle de langue en production). La décision est défendable sur les trois axes : performance, industrialisation et conformité.
 
 ---
 
 ## Note méthodologique
 
-Le fichier `decisions.md` (squelette initial du projet) prévoyait des sections "Gestion des doublons", "Gestion des manquants", "Gestion des valeurs erratiques" et "Préparation" restées vides. Le présent document (`decision.md`) consolide ces décisions à partir du notebook (`journal-de-bord.ipynb`, canvas §1 à §5), de `criteria.md`, `scenarii.md` et `baseline.md`, qui font foi pour le détail des choix et justifications.
+Le fichier `decisions.md` (squelette initial du projet) prévoyait des sections "Gestion des doublons", "Gestion des manquants", "Gestion des valeurs erratiques" et "Préparation" restées vides ; il a été remplacé par le présent document, qui consolide ces décisions à partir du notebook (`notebooks/certification-cas-usage.ipynb`, §1 à §7), de `criteria.md`, `scenarii.md`, `baseline.md`, `benchmark.md`, `comparaison_finalistes.md` et `evaluation_finale.md` — ces quatre derniers étant **générés automatiquement par le notebook** et faisant foi pour les chiffres. `decisions_log.jsonl` trace les décisions au fil de l'eau.
 
-Certains éléments n'ont pas de justification textuelle explicite dans les sources disponibles (ex. hyperparamètres TF-IDF `max_features=300`, `min_df=2`) : cela est signalé dans les sections concernées plutôt que d'inventer une justification.
+Les mentions de « zero-shot », « CamemBERT » et « TF-IDF » subsistant dans ce document, dans le notebook et dans `src/pipeline_texte.py` sont des **références historiques assumées** : elles documentent la méthode ayant produit `data/referentiel_familles.csv` et la comparaison avant/après qui justifie son retrait. Aucune de ces techniques n'est active dans le code, le modèle servi ou les dépendances du projet.

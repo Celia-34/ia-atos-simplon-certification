@@ -4,17 +4,23 @@ Généré automatiquement depuis `notebooks/certification-cas-usage.ipynb` (§5.
 
 Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne (comparaison entre modèles, pour ce scénario uniquement) · ⭐ meilleure valeur de la colonne tous scénarios × modèles confondus.
 
+## Scénario `s1`
+
+| Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
+|---|---|---|---|---|---|---|
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | ⭐🟢 0.715 | ⭐🟢 0.702 | ⭐🟢 0.653 | ⭐🟢 0.639 | 🟢 9.7 % | ⭐🟢 4.7 % |
+
 ## Scénario `s2`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.43 | 🟢 0.41 | 🟢 0.347 | 🟢 0.305 | 🟢 34.7 % | 🟢 16.0 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.6 | 🟢 0.583 | 🟢 0.569 | 🟢 0.497 | 🟢 23.6 % | 🟢 16.7 % |
 
 ## Scénario `s3`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.63 | 🟢 0.615 | ⭐🟢 0.639 | 🟢 0.526 | 🟢 23.6 % | 🟢 18.7 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.63 | 🟢 0.615 | 🟢 0.639 | 🟢 0.526 | 🟢 23.6 % | 🟢 18.7 % |
 
 ## Scénario `s4-age-anc-dep`
 
@@ -44,7 +50,7 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
-| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | ⭐🟢 0.69 | ⭐🟢 0.672 | 🟢 0.556 | ⭐🟢 0.597 | ⭐🟢 5.6 % | ⭐🟢 5.3 % |
+| `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.69 | 🟢 0.672 | 🟢 0.556 | 🟢 0.597 | ⭐🟢 5.6 % | 🟢 5.3 % |
 
 ## Scénario `s4-anc`
 

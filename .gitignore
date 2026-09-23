@@ -32,6 +32,11 @@ models/*.npy
 !services/model/models/*.joblib
 !services/model/models/*.json
 
+# Boucle de rétroaction : artefacts runtime (base de feedbacks, candidat non
+# promu). Le candidat n'est pas un livrable : seule la version promue l'est.
+data/*.db
+services/model/models/emploi_retour_candidate.joblib
+
 # Logs runtime des services
 services/*/logs/
 

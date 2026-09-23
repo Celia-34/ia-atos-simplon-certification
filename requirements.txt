@@ -1,53 +1,45 @@
-# Certification — requirements
+# Certification — environnement de développement (notebook + scripts + tests)
 # Python 3.11+
+#
+# Aucune dépendance NLP : le texte est une variable catégorielle
+# (`famille_thematique`, référentiel figé `data/referentiel_familles.csv`).
+# Les images de service ont leur propre requirements (services/*/requirements.txt),
+# volontairement plus restreint et épinglé au strict nécessaire à l'exécution.
 
-# API + serveur
+# --- API + serveur ---------------------------------------------------------
 fastapi>=0.115,<1
 uvicorn[standard]>=0.32,<1
-
-# Validation
 pydantic>=2.10,<3
-pydantic-settings==2.7.0
-
-# ML : doit correspondre à la version utilisée pour entraîner model.joblib
-scikit-learn>=1.7,<2
-joblib>=1.5,<2
 httpx>=0.28,<1
 
-# Journalisation (préférée au logging stdlib)
+# --- Observabilité (import des apps `model` / `backend` depuis les tests) ---
+prometheus-fastapi-instrumentator>=7,<8
+prometheus-client>=0.21,<1
+
+# --- ML / données ----------------------------------------------------------
+# scikit-learn doit correspondre à la version d'entraînement des artefacts
+# sérialisés (cf. `sklearn_version` dans les métadonnées du modèle servi).
+scikit-learn>=1.9,<2
+joblib>=1.5,<2
+numpy>=2,<3
+# pandas < 3 : les services servis épinglent 2.2.x, et pandas 3 change le
+# comportement par défaut des chaînes (`str` dtype) — l'env de dev doit rester
+# aligné sur ce qui tourne en conteneur.
+pandas>=2.2,<3
+
+# --- Journalisation (préférée au logging stdlib) ---------------------------
 loguru>=0.7,<1
 
-# Visualisation
+# --- Visualisation (notebook uniquement) -----------------------------------
 matplotlib==3.9.2
 seaborn==0.13.2
-plotly>=6,<7
 
-# Tests
+# --- Tests -----------------------------------------------------------------
 pytest>=8,<9
-pytest-asyncio==0.24.0
 
-
-# (Optionnel) régénérer le dataset
-# faker>=30,<50
-
-# ⚠️ PyTorch CPU pèse ~200 Mo, à installer une fois.
-# Pour installer la version CPU uniquement (plus rapide, suffisant pour le brief) :
-#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-torch==2.5.0
-torchvision==0.20.0
-
-# HF Transformers 
-# protobuf et sentencepiece sont des dépendances natives de CamemBERT
-transformers==4.46.3
-sentencepiece==0.2.0
-protobuf>=3.20,<5
-
-# Data / Visualisation
-Pillow==11.0.0
-numpy>=2,<3
-pandas>=2.2,<4
-matplotlib==3.9.2
-
-# Notebook
+# --- Notebook --------------------------------------------------------------
 jupyter==1.1.1
 ipykernel==6.29.5
+
+# (Optionnel) régénérer le dataset synthétique
+# faker>=30,<50

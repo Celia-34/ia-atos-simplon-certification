@@ -8,27 +8,27 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) | Part dossiers en alerte (validation manuelle) | Coût erreurs résiduelles (€) | Coût revues manuelles (€) | Coût métier total (€) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| HistGradientBoostingClassifier (class_weight=balanced) | 0.699 | 0.679 | 0.593 | 0.586 | 12.8 % | 6.3 % | 20.6 % | 78 450 € | 🟢 6 580 € | 85 030 € |
-| HistGradientBoostingClassifier (class_weight=balanced, max_depth=10) | 0.707 | 0.688 | 0.617 | 0.598 | 11.7 % | 7.3 % | 22.3 % | 70 080 € | 7 140 € | 77 220 € |
-| HistGradientBoostingClassifier (class_weight={0:1,1:1,2:3}) | 0.696 | 0.677 | 0.597 | 0.587 | 12.1 % | 6.7 % | 21.1 % | 75 620 € | 6 740 € | 82 360 € |
-| HistGradientBoostingClassifier (default) | ⭐🟢 0.716 | ⭐🟢 0.696 | 🔴 0.569 | ⭐🟢 0.611 | 🟢 10.8 % | 🟢 4.5 % | 18.8 % | 🔴 91 960 € | 7 520 € | 🔴 99 480 € |
-| LogisticRegression (C=0.1) | 0.696 | 0.683 | 0.7 | 0.609 | 15.5 % | 9.7 % | 33.4 % | 45 740 € | 10 700 € | 56 440 € |
-| LogisticRegression (C=10) | 0.647 | 🔴 0.632 | 0.624 | 0.548 | 14.5 % | 9.0 % | 28.0 % | 71 280 € | 8 960 € | 80 240 € |
-| LogisticRegression (class_weight={0:1,1:1,2:3}) | 🔴 0.646 | 0.634 | ⭐🟢 0.71 | 🔴 0.544 | 11.0 % | 15.4 % | 35.8 % | 50 760 € | 11 460 € | 62 220 € |
-| LogisticRegression (default) | 0.681 | 0.665 | 0.666 | 0.574 | 14.9 % | 10.4 % | 30.0 % | 71 430 € | 🔴 12 020 € | 83 450 € |
-| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.691 | 0.677 | 0.686 | 0.606 | 12.1 % | 10.7 % | 30.0 % | 47 940 € | 9 600 € | 57 540 € |
-| RandomForestClassifier (default) | 0.685 | 0.668 | 0.627 | 0.582 | 15.7 % | 8.7 % | 28.8 % | 67 020 € | 11 520 € | 78 540 € |
-| RandomForestClassifier (max_depth=10) | 0.668 | 0.652 | 0.679 | 0.56 | 🔴 16.6 % | 17.0 % | 33.7 % | ⭐🟢 41 650 € | 10 780 € | ⭐🟢 52 430 € |
-| RandomForestClassifier (min_samples_leaf=5) | 0.662 | 0.646 | 0.686 | 0.554 | 15.2 % | 🔴 19.0 % | 34.7 % | 42 760 € | 11 120 € | 53 880 € |
-| RandomForestClassifier (n_estimators=300) | 0.691 | 0.675 | 0.659 | 0.6 | 14.8 % | 10.0 % | 28.4 % | 49 640 € | 9 080 € | 58 720 € |
+| HistGradientBoostingClassifier (class_weight=balanced) | 0.711 | 0.692 | 0.613 | 0.603 | 11.9 % | 6.4 % | 21.3 % | 87 990 € | 8 540 € | 96 530 € |
+| HistGradientBoostingClassifier (class_weight=balanced, max_depth=10) | ⭐🟢 0.72 | ⭐🟢 0.706 | 0.649 | ⭐🟢 0.638 | 🟢 10.2 % | 4.9 % | 22.9 % | 74 810 € | 9 140 € | 83 950 € |
+| HistGradientBoostingClassifier (class_weight={0:1,1:1,2:3}) | 0.707 | 0.69 | 0.63 | 0.609 | 🟢 10.2 % | 6.0 % | 22.4 % | 82 960 € | 8 960 € | 91 920 € |
+| HistGradientBoostingClassifier (default) | 0.714 | 0.692 | 🔴 0.561 | 0.607 | 12.2 % | 🟢 4.3 % | 18.0 % | 🔴 99 770 € | 🟢 7 220 € | 🔴 106 990 € |
+| LogisticRegression (C=0.1) | 0.688 | 0.672 | 0.685 | 0.583 | 15.2 % | 11.2 % | 33.3 % | 59 080 € | 13 320 € | 72 400 € |
+| LogisticRegression (C=10) | 0.666 | 0.649 | 0.638 | 0.553 | 15.5 % | 10.1 % | 29.0 % | 83 740 € | 11 620 € | 95 360 € |
+| LogisticRegression (class_weight={0:1,1:1,2:3}) | 🔴 0.654 | 🔴 0.642 | 0.735 | 🔴 0.55 | 11.6 % | 🔴 15.5 % | 37.1 % | 59 010 € | 14 860 € | 73 870 € |
+| LogisticRegression (default) | 0.682 | 0.666 | 0.674 | 0.579 | 14.6 % | 10.5 % | 30.0 % | 71 350 € | 12 020 € | 83 370 € |
+| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.71 | 0.694 | 0.666 | 0.61 | 11.9 % | 8.3 % | 29.1 % | 58 940 € | 11 640 € | 70 580 € |
+| RandomForestClassifier (default) | 0.71 | 0.695 | 0.66 | 0.622 | 14.1 % | 6.1 % | 28.3 % | 62 290 € | 11 340 € | 73 630 € |
+| RandomForestClassifier (max_depth=10) | 0.7 | 0.686 | 0.677 | 0.615 | 🔴 18.8 % | 7.6 % | 37.9 % | 39 370 € | 15 160 € | 54 530 € |
+| RandomForestClassifier (min_samples_leaf=5) | 0.7 | 0.687 | ⭐🟢 0.754 | 0.612 | 13.5 % | 11.3 % | 38.3 % | ⭐🟢 34 480 € | 🔴 15 300 € | ⭐🟢 49 780 € |
+| RandomForestClassifier (n_estimators=300) | 0.713 | 0.695 | 0.641 | 0.607 | 13.8 % | 7.1 % | 27.2 % | 62 660 € | 10 880 € | 73 540 € |
 
 ## Scénario `s2`
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) | Part dossiers en alerte (validation manuelle) | Coût erreurs résiduelles (€) | Coût revues manuelles (€) | Coût métier total (€) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| HistGradientBoostingClassifier (default) | 🟢 0.456 | 0.401 | 🔴 0.171 | 🔴 0.213 | 🟢 28.7 % | 🟢 8.0 % | 18.0 % | 🔴 195 570 € | 🟢 7 200 € | 🔴 202 770 € |
-| LogisticRegression (default) | 0.418 | 🟢 0.402 | 🟢 0.401 | 🟢 0.291 | 🔴 32.3 % | 🔴 26.0 % | 55.3 % | 🟢 82 940 € | 🔴 22 140 € | 🟢 105 080 € |
-| RandomForestClassifier (default) | 🔴 0.396 | 🔴 0.371 | 0.271 | 0.246 | 30.7 % | 16.8 % | 30.9 % | 177 890 € | 12 360 € | 190 250 € |
+| HistGradientBoostingClassifier (default) | 0.601 | 0.563 | 🔴 0.395 | 🔴 0.412 | 🔴 26.5 % | 🟢 11.7 % | 22.8 % | 🔴 132 690 € | 🟢 9 100 € | 🔴 141 790 € |
+| LogisticRegression (default) | 🟢 0.647 | 🟢 0.628 | 🟢 0.63 | 🟢 0.519 | 🟢 18.5 % | 🔴 18.6 % | 36.9 % | 🟢 78 000 € | 🔴 14 780 € | 🟢 92 780 € |
+| RandomForestClassifier (default) | 🔴 0.575 | 🔴 0.55 | 0.475 | 0.426 | 26.0 % | 15.9 % | 30.1 % | 98 390 € | 12 040 € | 110 430 € |
 
 ## Scénario `s3`
 
@@ -39,6 +39,8 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | RandomForestClassifier (default) | 🟢 0.652 | 🟢 0.635 | 🟢 0.66 | 🟢 0.542 | 🟢 19.1 % | 🟢 18.7 % | 28.5 % | 🟢 99 580 € | 🔴 11 420 € | 🟢 111 000 € |
 
 ## Scénario `s3+s4-age-dip`
+
+TODO : a réexecuter pour mettre à jour
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) | Part dossiers en alerte (validation manuelle) | Coût erreurs résiduelles (€) | Coût revues manuelles (€) | Coût métier total (€) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -66,16 +68,16 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) | Part dossiers en alerte (validation manuelle) | Coût erreurs résiduelles (€) | Coût revues manuelles (€) | Coût métier total (€) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| HistGradientBoostingClassifier (class_weight=balanced) | 0.62 | 0.6 | 0.497 | 0.511 | 13.4 % | 5.3 % | 21.3 % | 92 410 € | 6 820 € | 99 230 € |
-| HistGradientBoostingClassifier (class_weight=balanced, max_depth=10) | 0.625 | 0.604 | 0.507 | 0.507 | 14.1 % | 6.0 % | 24.6 % | 82 770 € | 7 880 € | 90 650 € |
-| HistGradientBoostingClassifier (class_weight={0:1,1:1,2:3}) | 0.618 | 0.596 | 0.497 | 0.497 | 13.4 % | 7.3 % | 22.9 % | 90 210 € | 7 340 € | 97 550 € |
+| HistGradientBoostingClassifier (class_weight=balanced) | 0.644 | 0.622 | 0.508 | 0.511 | 10.5 % | 4.5 % | 22.1 % | 103 650 € | 8 820 € | 112 470 € |
+| HistGradientBoostingClassifier (class_weight=balanced, max_depth=10) | 0.662 | 0.641 | 0.547 | 0.544 | 9.4 % | 4.9 % | 23.7 % | 98 320 € | 9 480 € | 107 800 € |
+| HistGradientBoostingClassifier (class_weight={0:1,1:1,2:3}) | 0.645 | 0.625 | 0.533 | 0.526 | 8.8 % | 5.2 % | 23.0 % | 100 250 € | 9 180 € | 109 430 € |
 | HistGradientBoostingClassifier (default) | 0.658 | 0.632 | 🔴 0.467 | 0.525 | 9.9 % | 3.5 % | 16.6 % | 🔴 115 840 € | 🟢 6 620 € | 🔴 122 460 € |
-| LogisticRegression (C=0.1) | 0.534 | 0.523 | 0.631 | 0.47 | 15.9 % | 12.4 % | 36.9 % | 70 220 € | 11 800 € | 82 020 € |
-| LogisticRegression (C=10) | 0.504 | 0.491 | 0.497 | 🔴 0.406 | 14.8 % | 9.3 % | 32.9 % | 87 990 € | 10 540 € | 98 530 € |
-| LogisticRegression (class_weight={0:1,1:1,2:3}) | 🔴 0.481 | 🔴 0.478 | 🟢 0.634 | 0.418 | 11.7 % | 🔴 18.4 % | 45.7 % | 🟢 63 650 € | 🔴 14 620 € | 78 270 € |
+| LogisticRegression (C=0.1) | 0.547 | 0.536 | 0.652 | 0.477 | 14.1 % | 12.6 % | 37.6 % | 83 660 € | 15 020 € | 98 680 € |
+| LogisticRegression (C=10) | 0.532 | 0.519 | 0.55 | 🔴 0.425 | 15.5 % | 11.3 % | 33.7 % | 103 150 € | 13 460 € | 116 610 € |
+| LogisticRegression (class_weight={0:1,1:1,2:3}) | 🔴 0.5 | 🔴 0.495 | 🟢 0.685 | 0.432 | 12.2 % | 🔴 17.8 % | 47.4 % | 🟢 66 940 € | 🔴 18 980 € | 🟢 85 920 € |
 | LogisticRegression (default) | 0.54 | 0.526 | 0.566 | 0.436 | 14.9 % | 11.2 % | 35.1 % | 93 550 € | 14 040 € | 107 590 € |
-| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.687 | 0.663 | 0.528 | 0.552 | ⭐🟢 9.3 % | 3.0 % | 23.2 % | 73 360 € | 7 420 € | 80 780 € |
-| RandomForestClassifier (default) | 🟢 0.69 | 🟢 0.674 | 0.569 | 🟢 0.601 | 9.4 % | 2.5 % | 21.5 % | 92 400 € | 8 600 € | 101 000 € |
-| RandomForestClassifier (max_depth=10) | 0.629 | 0.611 | 0.572 | 0.548 | 🔴 19.0 % | 4.7 % | 32.4 % | 66 310 € | 10 360 € | 76 670 € |
-| RandomForestClassifier (min_samples_leaf=5) | 0.626 | 0.609 | 0.617 | 0.523 | 14.8 % | 7.7 % | 31.9 % | 65 420 € | 10 220 € | 🟢 75 640 € |
-| RandomForestClassifier (n_estimators=300) | 0.688 | 0.666 | 0.528 | 0.568 | 10.0 % | ⭐🟢 2.3 % | 20.7 % | 78 680 € | 6 640 € | 85 320 € |
+| RandomForestClassifier (class_weight={0:1,1:1,2:3}) | 0.693 | 0.674 | 0.561 | 0.589 | 9.7 % | ⭐🟢 2.5 % | 23.4 % | 91 020 € | 9 360 € | 100 380 € |
+| RandomForestClassifier (default) | 0.69 | 0.674 | 0.569 | 0.601 | 9.4 % | ⭐🟢 2.5 % | 21.5 % | 92 400 € | 8 600 € | 101 000 € |
+| RandomForestClassifier (max_depth=10) | 0.632 | 0.619 | 0.594 | 0.573 | 🔴 15.7 % | 3.7 % | 29.9 % | 82 720 € | 11 980 € | 94 700 € |
+| RandomForestClassifier (min_samples_leaf=5) | 0.628 | 0.611 | 0.622 | 0.52 | 11.9 % | 7.2 % | 32.2 % | 83 260 € | 12 860 € | 96 120 € |
+| RandomForestClassifier (n_estimators=300) | 🟢 0.698 | 🟢 0.68 | 0.561 | 🟢 0.601 | ⭐🟢 8.3 % | 2.7 % | 20.9 % | 91 100 € | 8 360 € | 99 460 € |

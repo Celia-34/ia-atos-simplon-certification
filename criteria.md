@@ -26,13 +26,21 @@ Ces critères donnent une vue d'ensemble de la qualité des prédictions et de l
 
 Les seuils révisés devront être confirmés après validation croisée sur le train et une unique évaluation sur le jeu de test stratifié. Un modèle satisfaisant l'accuracy mais échouant sur le recall de la classe 2, les erreurs graves ou l'écart d'équité sera écarté.
 
-====
-Attention TODO
-Aucune métrique à l'étape 4 sur  ces 2 métriques : a voir si on le fait ensuite ou les supprimer :
-* Taux d'abstention (fallback §7.2) — absent de §4.3. Le benchmark n'implémente aucun mécanisme de seuil de confiance/rejet à ce stade (les modèles évalués prédisent systématiquement une classe), donc cette métrique ne peut pas encore être mesurée.
-* Écart de recall classe 2 entre sous-groupes sensibles (§3.6) — absent de §4.3. Il n'est calculé qu'en amont sur les données brutes (§3.6.1, écarts de taux de classe 2 par sous-groupe), pas sur les prédictions du modèle par sous-groupe.
+#### Confrontation aux résultats obtenus (modèle retenu : S1 + `RandomForestClassifier(n_estimators=300)`)
 
-====
+Bilan honnête à l'issue de l'étape 5. Les chiffres proviennent de `evaluation_finale.md` (test set, §5.6.2) et de l'audit §7.2 ; ils ne sont pas recopiés à la main mais repris des fichiers générés par le notebook.
+
+| Critère | Cible révisée | Mesuré | Verdict |
+|---|---|---|---|
+| Recall classe 2 | ≥ 0.80 | **0.589** | ❌ Non atteint. Le meilleur recall du benchmark (0.754, `RandomForestClassifier(min_samples_leaf=5)`) n'a pas été retenu car il dégrade le taux d'erreur grave à 13,5 %. |
+| Taux d'erreur grave 2→0 | < 5 % | **10,0 %** (9 cas sur 90 classes 2) | ❌ Non atteint. Compensé — partiellement — par le filet de validation manuelle : 4 des 9 erreurs graves sont rattrapées. |
+| F1-score classe 2 | ≥ 0.60 | **0.570** | ❌ Juste sous la cible. |
+| Taux d'abstention (fallback §7.2) | ≤ 15 % | **25,6 %** (128 dossiers sur 500) | ❌ Dépassé. Métrique désormais mesurable grâce aux règles de décision §5.2.3 (seuil A = 0.40, seuil B = 0.20) ; le seuil A est l'arbitrage direct entre cette charge et le coût des erreurs — à faire trancher par le métier. |
+| Accuracy globale | ≥ 70 % | **71,4 %** | ✅ Atteint. |
+| Taux d'erreur global | ≤ 30 % | **28,6 %** | ✅ Atteint. |
+| F1-score macro | ≥ 0.65 | **0.690** | ✅ Atteint. |
+| Temps de réponse `/predict` | p95 < 200 ms | **p95 50,1 ms** (p50 27,3 ms, 1 000 appels `predict` unitaires, §5.6.2) | ✅ Atteint largement. Mesure faite sur le pipeline, à reconfirmer bout-en-bout sur l'API conteneurisée. |
+
 
 Note :
 _ROC-AUC n'est pas retenu car il est conçu pour la classification binaire (ou en one-vs-rest peu lisible en multi-classe) et n'est pas directement interprétable pour arbitrer sur l'erreur asymétrique prioritaire (classe 2 → classe 0). Les métriques choisies (recall/F1 classe 2, taux d'erreur grave) sont plus directement alignées avec le risque métier identifié en §1.1, tandis que ROC-AUC mesurerait un ordonnancement global des probabilités moins actionnable pour ce cas d'usage._

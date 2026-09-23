@@ -1,24 +1,25 @@
 """Reusable tabular preprocessing for the employment-return scenarios.
 
-The text-only scenario S3 deliberately lives outside this module. Scenarios S1
-and S2 use the returned pipeline for their tabular component before it is
-combined with a separate NLP representation.
+Depuis la phase 2, la synthèse d'entretien n'a plus de pipeline dédié : elle est
+résumée par ``famille_thematique`` (9 modalités + ``texte_manquant``, cf.
+``src.pipeline_texte.assigner_famille``) et traitée ici comme une variable
+catégorielle ordinaire (OneHot). Tous les scénarios — y compris S3 (texte seul) et
+S1 (multimodal complet) — passent donc par ce module.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from PIL.features import features
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, OrdinalEncoder, StandardScaler
-from transformers import data
 
 from src import metrics as metrics_module
+from src import pipeline_texte
 from src.metrics import evaluate_model
 
 
@@ -27,10 +28,12 @@ NUMERIC_FEATURES = ("age", "anciennete_poste_ans")
 # Ordre croissant du niveau d'études (§2.3), encodé par OrdinalEncoder plutôt que OneHotEncoder
 # pour préserver cette relation d'ordre.
 NIVEAU_DIPLOME_ORDER = ["Sans diplôme", "Bac", "Bac+2", "Bac+5"]
+# Représentation catégorielle de la synthèse d'entretien (§4.2.2), encodée en OneHot avec
+# handle_unknown="ignore" comme les autres catégorielles.
+FAMILLE_FEATURE = "famille_thematique"
 SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
-	# S1 (§4.2/§6.1) : partie TABULAIRE du scénario multimodal complet. Utilisé seul, ce tuple ne
-	# constitue PAS le scénario S1 (qui est hybride, cf. src/pipeline_tabulaire_hybride.py avec
-	# tabular_scenario="s1") : pour la variante purement tabulaire, utiliser "s4-all" ci-dessous.
+	# S1 (§4.2/§6.1) : approche multimodale complète = variables tabulaires + la synthèse
+	# d'entretien sous sa forme catégorielle (famille_thematique).
 	"s1": (
 		"nationalite_hors_ue",
         "age",
@@ -39,9 +42,10 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 		"code_rome_vise",
 		"est_allocataire",
 		"departement",
+		FAMILLE_FEATURE,
 	),
 	# S4-all : mêmes variables tabulaires que "s1", MAIS sans le texte — sert de référence pure
-	# tabulaire pour mesurer l'apport réel du texte dans le scénario S1 hybride (cf. §6.1).
+	# tabulaire pour mesurer l'apport réel du texte dans le scénario S1 (cf. §6.1).
 	# Anciennement appelé (à tort) "s1" avant correction : cf. décision consignée en §5.6/§6.
 	"s4-all": (
 		"nationalite_hors_ue",
@@ -52,7 +56,9 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 		"est_allocataire",
 		"departement",
 	),
-	"s2": ("anciennete_poste_ans", "code_rome_vise", "est_allocataire"),
+	"s2": ("anciennete_poste_ans", "code_rome_vise", "est_allocataire", FAMILLE_FEATURE),
+	# S3 : texte seul. Plus de pipeline NLP séparé — une unique colonne catégorielle.
+	"s3": (FAMILLE_FEATURE,),
 	# Sous-scénarios S4 nommés d'après les features tabulaires conservées (§3.7/§4.4) :
 	# ablation d'un proxy à la fois pour attribuer précisément son apport.
 	"s4-age-dip-anc-dep": ("age", "anciennete_poste_ans", "niveau_diplome", "departement"),
@@ -66,10 +72,10 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 
 
 def get_scenario_features(scenario: str) -> tuple[str, ...]:
-	"""Return the tabular features selected for a documented scenario.
+	"""Return the features selected for a documented scenario.
 
-	Scenario names are case-insensitive. S3 is intentionally unsupported here
-	because it uses only ``synthese_entretien`` and belongs to the NLP pipeline.
+	Scenario names are case-insensitive. S3 est désormais supporté : la synthèse
+	d'entretien s'y réduit à la seule colonne catégorielle ``famille_thematique``.
 	"""
 	normalized_scenario = scenario.lower()
 	try:
@@ -83,7 +89,12 @@ def get_scenario_features(scenario: str) -> tuple[str, ...]:
 
 
 def prepare_tabular_features(data: pd.DataFrame, scenario: str) -> pd.DataFrame:
-    """Select a scenario's features and derive ``departement`` when required."""
+    """Select a scenario's features, deriving ``departement`` and ``famille_thematique``.
+
+    Les deux colonnes dérivées le sont uniquement si elles manquent : ``departement``
+    depuis ``code_insee_commune``, ``famille_thematique`` depuis la synthèse d'entretien
+    préparée via le référentiel figé (§4.2.2).
+    """
     features = get_scenario_features(scenario)
     prepared_data = data.copy()
 
@@ -95,6 +106,14 @@ def prepare_tabular_features(data: pd.DataFrame, scenario: str) -> pd.DataFrame:
             )
         commune_codes = prepared_data["code_insee_commune"].astype("string")
         prepared_data["departement"] = commune_codes.str.zfill(5).str[:2]
+
+    if FAMILLE_FEATURE in features and FAMILLE_FEATURE not in prepared_data:
+        if pipeline_texte.TEXT_COLUMN not in prepared_data:
+            raise ValueError(
+                f"The '{FAMILLE_FEATURE}' feature requires either a '{FAMILLE_FEATURE}' "
+                f"or a '{pipeline_texte.TEXT_COLUMN}' column."
+            )
+        prepared_data = pipeline_texte.assigner_famille(prepared_data)
 
     missing_features = sorted(set(features) - set(prepared_data.columns))
     if missing_features:
