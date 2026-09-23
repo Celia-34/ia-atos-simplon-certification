@@ -22,13 +22,13 @@ sys.path.insert(0, str(ROOT / "services" / "feedback"))
 from app.main import DB_PATH, app  # noqa: E402
 from promotion import MIN_GAIN, THRESHOLDS, decide_promotion  # noqa: E402
 
-# Golden run v2.0.0 mesuré sur data/reference_set.csv (data/reference_baseline.json).
+# Golden run v3.0.0 mesuré sur data/reference_set.csv (data/reference_baseline.json).
 PRODUCTION_METRICS = {
-    "accuracy": 0.7057,
-    "f1_macro": 0.6839,
-    "f1_classe_2": 0.5854,
-    "recall_classe_2": 0.5714,
-    "taux_erreur_grave_2_vers_0": 0.0952,
+    "accuracy": 0.7171,
+    "f1_macro": 0.6990,
+    "f1_classe_2": 0.6029,
+    "recall_classe_2": 0.6508,
+    "taux_erreur_grave_2_vers_0": 0.0794,
 }
 
 
@@ -106,25 +106,57 @@ def test_candidat_qui_progresse_est_promu():
 
 
 def test_regression_critique_sur_le_recall_est_rejetee():
-    candidate = {**PRODUCTION_METRICS, "accuracy": 0.75, "recall_classe_2": 0.55}
+    """Un recul du recall classe 2 n'est pas rachetable par un gain d'accuracy.
+
+    La valeur choisie reste **au-dessus du plancher** (0.60) : sans cela le rejet
+    tomberait sur « Plancher de qualité » et ce test ne vérifierait plus la règle
+    de non-régression critique qu'il prétend couvrir.
+    """
+    candidate = {**PRODUCTION_METRICS, "accuracy": 0.78, "recall_classe_2": 0.62}
 
     decision = decide_promotion(candidate, PRODUCTION_METRICS)
 
     assert not decision.promote
-    assert "Plancher" in decision.reason or "Régression critique" in decision.reason
+    assert "Régression critique" in decision.reason
+    assert "recall_classe_2" in decision.reason
 
 
 def test_hausse_de_l_erreur_grave_est_une_regression_critique():
+    """Renvoyer un dossier à risque vers « retour rapide » est l'erreur la plus
+    coûteuse : elle prive l'usager de tout accompagnement.
+
+    0.095 reste **sous le plancher** de 0.10 mais au-dessus du golden run
+    (0.0794) de plus d'une tolérance : le rejet doit donc venir de la règle de
+    non-régression, pas du plancher.
+    """
     candidate = {
         **PRODUCTION_METRICS,
-        "f1_macro": 0.75,
-        "taux_erreur_grave_2_vers_0": 0.11,
+        "f1_macro": 0.78,
+        "taux_erreur_grave_2_vers_0": 0.095,
     }
 
     decision = decide_promotion(candidate, PRODUCTION_METRICS)
 
     assert not decision.promote
+    assert "Régression critique" in decision.reason
     assert "taux_erreur_grave_2_vers_0" in decision.reason
+
+
+def test_le_plancher_d_erreur_grave_est_le_garde_fou_metier_de_10_pourcent():
+    """Résorption durable de #6.
+
+    La neutralisation de la phase 4 portait l'erreur grave à 12,2 %, ce qui
+    avait contraint à desserrer le plancher à 0.12 — un garde-fou qu'aucun
+    modèle ne pouvait plus déclencher. Le modèle aligné repasse sous les 10 %
+    du §1.4 : le plancher y revient et doit y rester.
+    """
+    assert THRESHOLDS["taux_erreur_grave_2_vers_0"] == 0.10
+
+    candidate = {**PRODUCTION_METRICS, "taux_erreur_grave_2_vers_0": 0.101}
+    decision = decide_promotion(candidate, PRODUCTION_METRICS)
+
+    assert not decision.promote
+    assert "Plancher de qualité" in decision.reason
 
 
 def test_plancher_de_qualite_non_respecte_est_rejete():
@@ -168,3 +200,20 @@ def test_le_modele_de_production_respecte_ses_propres_planchers():
             assert value <= floor, f"{metric}={value:.4f} > plancher {floor}"
         else:
             assert value >= floor, f"{metric}={value:.4f} < plancher {floor}"
+
+
+def test_les_metriques_de_reference_du_test_suivent_le_golden_run():
+    """A3.3 — `PRODUCTION_METRICS` est une copie du golden run.
+
+    Une copie qui dérive rend tous les cas limites ci-dessus faux sans qu'aucun
+    d'eux n'échoue : ils continueraient de tester une frontière de décision qui
+    n'existe plus. Ce test est le lien qui les rattache au fichier de vérité.
+    """
+    import json
+
+    baseline = json.loads(
+        (ROOT / "data" / "reference_baseline.json").read_text(encoding="utf-8")
+    )
+    assert baseline["model_version"] == "v3.0.0"
+    for metric, value in PRODUCTION_METRICS.items():
+        assert value == pytest.approx(baseline["metrics"][metric], abs=5e-5), metric

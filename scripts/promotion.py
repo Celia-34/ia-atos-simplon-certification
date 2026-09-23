@@ -24,8 +24,8 @@ HIGHER_IS_BETTER: dict[str, bool] = {
 }
 
 # Cibles métier §1.4 (criteria.md), rappelées ici pour mémoire : elles ne sont
-# PAS les planchers de promotion. Le modèle v2.0.0 en production ne les atteint
-# pas encore (recall classe 2 = 0.571 pour une cible de 0.80) ; les utiliser
+# PAS les planchers de promotion. Le modèle v3.0.0 en production ne les atteint
+# pas encore (recall classe 2 = 0.651 pour une cible de 0.80) ; les utiliser
 # comme planchers rejetterait tout candidat, y compris ceux qui rapprochent le
 # modèle de la cible. Cet écart est un choix à défendre, pas un oubli.
 CIBLES_METIER: dict[str, float] = {
@@ -36,25 +36,43 @@ CIBLES_METIER: dict[str, float] = {
     "taux_erreur_grave_2_vers_0": 0.05,
 }
 
-# Planchers de non-régression, calibrés sous la performance du golden run
-# v2.0.0 mesuré sur data/reference_set.csv (accuracy 0.706, f1_macro 0.684,
-# f1_classe_2 0.585, recall_classe_2 0.571, erreur 2→0 0.095). Un candidat qui
-# passe sous ces valeurs n'est plus un modèle acceptable, quel que soit son
-# gain ailleurs.
+# Planchers de non-régression, dérivés du golden run **v3.0.0** mesuré sur
+# data/reference_set.csv (accuracy 0.7171, f1_macro 0.6990, f1_classe_2 0.6029,
+# recall_classe_2 0.6508, erreur 2→0 0.0794).
 #
-# Recalibrés en phase 4 : les planchers précédents (recall 0.58, erreur 2→0
-# 0.10) avaient été calés sur le golden run v1.0.0. Le modèle v2.0.0 — S1 avec
-# `famille_thematique` en one-hot et nationalité neutralisée — est plus précis
-# globalement mais moins sensible sur la classe 2 ; conservés tels quels, ces
-# planchers auraient rejeté le modèle **de production lui-même**, rendant toute
-# promotion impossible. Un plancher qu'aucun modèle servi ne franchit n'est pas
-# un garde-fou, c'est un blocage.
+# Règle de calibration, explicite et rejouable à chaque changement de modèle
+# servi : plancher = performance du golden run − 5 points, tronquée à deux
+# décimales. Cinq points, c'est cinq fois TOLERANCE (le bruit d'échantillonnage
+# sur 350 lignes) : assez haut pour écarter un candidat réellement dégradé,
+# assez bas pour ne pas rejeter le modèle de production lui-même.
+#
+#   accuracy         0.7171 − 0.05 → 0.66
+#   f1_macro         0.6990 − 0.05 → 0.64
+#   f1_classe_2      0.6029 − 0.05 → 0.55
+#   recall_classe_2  0.6508 − 0.05 → 0.60
+#
+# `f1_macro` passe ainsi de 0.65 à 0.64, soit un point sous la cible §1.4. C'est
+# assumé : un plancher n'est pas une cible, et f1_macro n'est pas une métrique
+# critique (cf. CRITICAL_METRICS) — la protection de la classe 2 est portée par
+# `recall_classe_2` et `taux_erreur_grave_2_vers_0`, tous deux resserrés.
+#
+# `taux_erreur_grave_2_vers_0` fait exception : la règle donnerait 0.11, mais le
+# plancher est ramené au **garde-fou métier §1.4 de 10 %**, que le modèle aligné
+# franchit désormais (0.0794 sur le jeu de référence, 0.100 sur le test set).
+# C'est la résorption durable du point #6 : la neutralisation de la phase 4
+# portait ce taux à 12,2 %, ce qui avait contraint à desserrer le plancher à
+# 0.12 — un garde-fou qu'aucun modèle ne pouvait plus déclencher.
+#
+# Historique : les planchers de la phase 4 (f1_classe_2 0.55, recall_classe_2
+# 0.53, erreur 2→0 0.12) avaient été abaissés parce que le modèle à nationalité
+# neutralisée ne franchissait plus ses propres seuils. Le modèle v3.0.0 étant
+# meilleur sur les cinq métriques, ces valeurs n'écartaient plus rien.
 THRESHOLDS: dict[str, float] = {
-    "accuracy": 0.65,
-    "f1_macro": 0.65,
+    "accuracy": 0.66,
+    "f1_macro": 0.64,
     "f1_classe_2": 0.55,
-    "recall_classe_2": 0.53,
-    "taux_erreur_grave_2_vers_0": 0.12,
+    "recall_classe_2": 0.60,
+    "taux_erreur_grave_2_vers_0": 0.10,
 }
 
 # Métriques protégées contre toute régression : détecter les dossiers à risque
