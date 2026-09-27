@@ -1,8 +1,9 @@
 services:
   model:
-    # Contexte = services/model/ : l'image n'a plus besoin de src/ (aucun
-    # transformeur maison dans le pipeline sérialisé depuis la suppression du NLP).
-    build: ./services/model
+    # Contexte = racine du repo : l'image a besoin de src/ en plus de services/model/.
+    build:
+      context: .
+      dockerfile: services/model/Dockerfile
     ports:
       - "8000:8000"
     healthcheck:
