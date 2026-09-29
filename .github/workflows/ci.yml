@@ -113,11 +113,11 @@ jobs:
           IMG="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')-${{ matrix.service }}"
           echo "image=$IMG" >> "$GITHUB_OUTPUT"
           echo "tag=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
-      # Les quatre services se buildent désormais depuis leur propre dossier :
-      # `model` n'a plus besoin du contexte racine (plus de `COPY src/`).
+      # Le modèle a besoin du contexte racine pour copier le package `src/`.
       - uses: docker/build-push-action@v6
         with:
-          context: ./services/${{ matrix.service }}
+          context: ${{ matrix.service == 'model' && '.' || format('./services/{0}', matrix.service) }}
+          file: ./services/${{ matrix.service }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.service }}
