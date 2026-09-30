@@ -1,141 +1,36 @@
-# M4-B2 — Squelette repo (vision PCB Defect — binôme async)
+# Certification IA - Trajectoire emploi
 
-> **Repo template GitHub.** Le membre désigné du binôme clique sur
-> **« Use this template »** → nomme `M4-B2-pcb-<binome>` → invite l'autre.
+Ce dépôt présente un cas d'usage d'intelligence artificielle pour estimer le délai de retour à l'emploi d'un demandeur d'emploi (moins de 6 mois, 6 à 12 mois, plus de 12 mois). Il contient l'analyse et l'évaluation du modèle dans un notebook, ainsi qu'une application web conteneurisée pour tester des prédictions.
 
----
+## Contexte
 
-## 🚀 Démarrage (5 commandes)
+Projet réalisé dans le cadre de la formation certifiante en intelligence artificielle Simplon / ATOS Atlas IA, parcours 2 (Pros IT), du 18 mai au 15 octobre 2026. Le sujet de certification porte sur le cadrage, l'analyse et la modélisation d'un cas d'usage IA à partir du jeu de données « Trajectoire Emploi », avec une attention particulière aux erreurs de prédiction, aux biais et aux enjeux réglementaires.
+Auteur : Célia Fortuna
+
+## Lancer le notebook
+
+Le notebook principal est [`notebooks/certification-cas-usage.ipynb`](notebooks/certification-cas-usage.ipynb). Depuis la racine du dépôt, créez un environnement Python 3.11+ et installez les dépendances :
 
 ```bash
-git clone git@github.com:<owner>/M4-B2-pcb-<binome>.git
-cd M4-B2-pcb-<binome>
-
-python -m venv .venv && source .venv/bin/activate
-# (variante uv : uv venv .venv && source .venv/bin/activate)
-
-# ⚠️ PyTorch CPU pèse ~200 Mo
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+python -m venv .venv
+source .venv/bin/activate  # Windows : .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-# (variante uv : uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-#                uv pip install -r requirements.txt)
+cd notebooks
+jupyter lab certification-cas-usage.ipynb
 ```
 
-> 🛠️ **Dépannage** : `No module named pip` après `uv venv` → utiliser `uv pip install …`
-> (un venv créé par uv n'embarque pas pip).
+Exécutez les cellules dans l'ordre. Le démarrage depuis `notebooks/` est nécessaire pour que les chemins relatifs trouvent les fichiers `data/` et `resources/` à la racine. Le jeu de données et les ressources nécessaires sont déjà présents dans le dépôt.
+
+## Lancer l'application avec Docker
+
+Installez et démarrez Docker Desktop, puis lancez depuis la racine du dépôt :
 
 ```bash
-
-# Génère les ~2 100 images PCB (déterministe, seed 42, ~30 s)
-python scripts/generate_dataset.py
-
-jupyter notebook notebooks/M4-B2_template.ipynb
+docker compose up --build
 ```
 
-> 📦 Les ~2 100 images PCB (7 classes = 6 défauts + 1 OK, 64×64) sont **générées par
-> `scripts/generate_dataset.py`** dans `data/pcb_defect_sample/`. Synthétiques,
-> déterministes (seed 42) → tout le monde a le même jeu. Git-ignorées (on ne
-> commite pas la donnée, on la régénère).
+Ouvrez l'application sur [http://localhost:8088](http://localhost:8088). Les services et outils de suivi sont également disponibles sur [Prometheus](http://localhost:9090), [Grafana](http://localhost:3001) (identifiants initiaux `admin` / `admin`) et [MLflow](http://localhost:5000). Pour arrêter les conteneurs, utilisez `Ctrl+C`, puis :
 
----
-
-## 📁 Structure du repo
-
+```bash
+docker compose down
 ```
-M4-B2-pcb-<binome>/
-├── scripts/
-│   └── generate_dataset.py              # génère les images PCB (seed 42)
-├── data/                                # gitignored
-│   └── pcb_defect_sample/               # produit par le script
-│       ├── ok/ open/ short/ ...         # 7 classes
-├── notebooks/
-│   └── M4-B2_template.ipynb
-├── src/
-│   ├── load_data.py                     # Dataset PyTorch + dataloaders
-│   ├── option_a_cnn.py                  # CNN from scratch (TODO si choisi)
-│   ├── option_b_transfer.py             # ResNet-18 transfer (TODO si choisi)
-│   └── option_c_clip.py                 # CLIP zero-shot (TODO si choisi)
-├── models/                              # gitignored
-├── ressources/                          # 📚 6 mini-cours
-│   ├── README.md
-│   ├── 01_CNN_from_scratch_essentiel.md
-│   ├── 02_Transfer_learning_essentiel.md
-│   ├── 03_Zero_shot_CLIP_essentiel.md
-│   ├── 04_Comparaison_economique_essentiel.md
-│   ├── 05_Pair_coding_async_essentiel.md
-│   ├── 06_Grille_decision_approche_essentiel.md
-│   └── liens_officiels.md
-├── decisions.md                         # binôme — choix + répartition
-├── economic_comparison.md               # comparatif 3 approches
-├── verdict.md                           # recommandation 8 lignes
-├── requirements.txt
-└── .gitignore
-```
-
----
-
-## 📚 Mini-cours d'appui
-
-6 mini-cours dans [`./ressources/`](./ressources/) — lecture juste-à-temps.
-**À lire en premier : `06` (grille de décision) — c'est le cœur du choix
-d'approche que vous devez justifier.**
-
-| Tâche | Mini-cours |
-|---|---|
-| **Choisir l'approche (grille de décision C4)** | [`06_Grille_decision_approche_essentiel.md`](./ressources/06_Grille_decision_approche_essentiel.md) |
-| CNN from scratch (option A) | [`01_CNN_from_scratch_essentiel.md`](./ressources/01_CNN_from_scratch_essentiel.md) |
-| Transfer learning (option B) | [`02_Transfer_learning_essentiel.md`](./ressources/02_Transfer_learning_essentiel.md) |
-| Zero-shot CLIP (option C) | [`03_Zero_shot_CLIP_essentiel.md`](./ressources/03_Zero_shot_CLIP_essentiel.md) |
-| Comparaison économique | [`04_Comparaison_economique_essentiel.md`](./ressources/04_Comparaison_economique_essentiel.md) |
-| Pair-coding async | [`05_Pair_coding_async_essentiel.md`](./ressources/05_Pair_coding_async_essentiel.md) |
-
----
-
-## 🧭 Démarche attendue
-
-### Jeudi (3h30 par membre, 7h cumulées binôme)
-
-1. **Coordination kick-off** (~30 min)
-2. **EDA dataset PCB** (~1h, partagé)
-3. **Implémentation de l'option choisie** (~4h, partagé)
-
-### Vendredi matin (3h30 cumulées binôme)
-
-4. **Comparaison économique** (~1h30)
-5. **Verdict + recommandation** (~30 min)
-6. **README + préparation restitution duo** (~1h)
-7. **Finition + test croisé du repo** (~30 min)
-
-→ Compétences visées : **C1 — adapter** renforcé + **C4 — adapter** renforcé.
-
-### ⭐ Extensions optionnelles (« cas client avancé »)
-
-> Non notées (bonus qualitatif). **Seulement si le socle est bouclé.** Les 3
-> approches restent imposées — c'est la **façon de les implémenter** qui s'ouvre.
-> Toute décision ⭐ se justifie dans `decisions.md`.
-
-- ⭐ **CNN** : conçois ton archi (≥ 2 conv + 1 pooling) et **justifie le flatten**.
-- ⭐ **Transfer** : choisis ton backbone (ResNet18 / MobileNet / EfficientNet) et justifie.
-- ⭐ **CLIP** : prompts libres + explique ta stratégie de prompt engineering.
-- ⭐ **Sensibilité au dataset** : change 1-2 paramètres du générateur (bruit dans `augment`, taille/contraste des défauts dans `apply_defect`), régénère, observe comment tes 3 chiffres bougent → les perfs dépendent de la **distribution des données**, pas que du modèle. Aucun résultat imposé ; ne touche pas au dataset figé de ton verdict principal.
-
----
-
-## ✅ Conventions de code
-
-- Python 3.11+, type hints
-- `Co-authored-by:` sur les commits significatifs
-- Branches nominatives `<prénom>/<feature>`
-- Test croisé : chacun clone et fait tourner le code de l'autre
-
----
-
-## 🆘 Bloqué·e·s ?
-
-1. Relisez le mini-cours de l'option choisie.
-2. **Sur PyTorch** : `device = "cpu"` est OK (volume limité). Pas besoin
-   de GPU.
-3. **Sur CLIP** : ~150 Mo de téléchargement au 1ᵉʳ appel — patience.
-4. **Si binôme stuck à 2** : un fait un mini-prototype et MP voix, l'autre
-   prend le clavier. Switch.
-5. Demande sur Discord (`fil-M4-B2`).
