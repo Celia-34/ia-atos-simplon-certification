@@ -14,6 +14,18 @@
     fieldset.sensible { border-color: #b26a00; background: #fffaf2; }
     fieldset.sensible legend { color: #8a5200; font-weight: 600; }
     .mention { font-size: .8rem; line-height: 1.4; margin: .2rem 0 .8rem; }
+    #history { margin-top: 2rem; }
+    .history-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .history-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .6rem .4rem; border-bottom: 1px solid #ddd; text-align: left; white-space: nowrap; }
+    th { font-size: .8rem; }
+    #historyStatus { min-height: 1.5em; font-size: .9rem; }
+    @media (max-width: 480px) {
+      body { margin: 1rem auto; }
+      .history-header { align-items: flex-start; }
+      th, td { padding: .5rem .3rem; }
+    }
   </style>
 </head>
 <body>
@@ -200,6 +212,22 @@
 
   <div id="result"></div>
 
+  <section id="history" aria-labelledby="historyTitle">
+    <div class="history-header">
+      <h2 id="historyTitle">Historique des inférences</h2>
+      <button type="button" id="refreshHistory">Actualiser</button>
+    </div>
+    <p id="historyStatus" role="status" aria-live="polite"></p>
+    <div class="history-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Requête</th><th>Résultat</th><th>Probabilité</th><th>Modèle</th></tr>
+        </thead>
+        <tbody id="historyRows"></tbody>
+      </table>
+    </div>
+  </section>
+
   <script>
     const form = document.getElementById('scoreForm');
     const result = document.getElementById('result');
@@ -239,6 +267,34 @@
         .join('');
     }
 
+    async function loadHistory() {
+      const status = document.getElementById('historyStatus');
+      const rows = document.getElementById('historyRows');
+      status.textContent = 'Chargement de l’historique…';
+      try {
+        const resp = await fetch('/api/history');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const records = await resp.json();
+        rows.innerHTML = records.map((record) => {
+          const info = CLASS_LABELS[record.prediction] || { label: `Classe ${record.prediction}` };
+          const date = new Date(record.created_at).toLocaleString('fr-FR');
+          return `<tr>
+            <td>${esc(date)}</td>
+            <td><code>${esc(record.request_id)}</code></td>
+            <td>${esc(info.label)}</td>
+            <td>${esc((record.probability * 100).toFixed(1))} %</td>
+            <td>${esc(record.model_version)}</td>
+          </tr>`;
+        }).join('');
+        status.textContent = records.length ? `${records.length} inférence(s) récente(s)` : 'Aucune inférence enregistrée.';
+      } catch (err) {
+        rows.innerHTML = '';
+        status.textContent = 'Impossible de charger l’historique. Réessayez.';
+      }
+    }
+
+    document.getElementById('refreshHistory').addEventListener('click', loadHistory);
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
@@ -262,6 +318,7 @@
             <p style="font-size:.8rem;opacity:.7">
               modèle ${esc(body.model_version)} · requête <code>${esc(body.request_id)}</code>
             </p>`, info.css);
+          await loadHistory();
 
         } else if (resp.status === 422) {
           show(`<strong>Saisie invalide</strong><ul>${formatValidationError(body.detail)}</ul>`, 'risque');
@@ -300,6 +357,8 @@
         if (field) field.value = value;
       }
     });
+
+    loadHistory();
   </script>
 </body>
 </html>

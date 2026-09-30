@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -59,8 +60,10 @@ class FakeAsyncClient:
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setattr(app_module, "INFERENCE_DB", tmp_path / "inferences.db")
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def metric_value(client: TestClient, kind: str) -> float:
@@ -131,6 +134,30 @@ def test_score_returns_prediction_and_propagates_request_id(
     assert fake.post_kwargs["url"] == f"{app_module.MODEL_URL}/predict"
     assert fake.post_kwargs["headers"] == {"X-Request-ID": "test-request-id"}
     assert fake.post_kwargs["json"] == VALID_PAYLOAD
+    history = client.get("/history")
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    record = history.json()[0]
+    assert set(record) == {
+        "request_id", "prediction", "probability", "model_version", "created_at"
+    }
+    assert record["request_id"] == "test-request-id"
+    assert record["prediction"] == 0
+    assert record["probability"] == 0.6789
+    assert record["model_version"] == "v1.0.0"
+    datetime.fromisoformat(record["created_at"])
+
+
+def test_history_is_empty_before_first_inference(client: TestClient) -> None:
+    response = client.get("/history")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_history_limit_is_validated(client: TestClient) -> None:
+    assert client.get("/history?limit=0").status_code == 422
+    assert client.get("/history?limit=101").status_code == 422
 
 
 def test_score_rejects_invalid_usager_without_calling_model(

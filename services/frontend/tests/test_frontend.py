@@ -188,5 +188,11 @@ def test_l_appel_api_reste_en_chemin_relatif(html_text):
     assert "http://backend:8001" not in html_text
 
 
+def test_l_historique_est_charge_depuis_l_api(html_text):
+    assert 'id="historyTitle"' in html_text
+    assert "fetch('/api/history')" in html_text
+    assert 'id="refreshHistory"' in html_text
+
+
 def test_aucun_todo_residuel(html_text):
     assert "TODO" not in html_text

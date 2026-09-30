@@ -8,6 +8,10 @@ interne (`http://model:8000/predict`), et expose `/health`, `/score`,
 from __future__ import annotations
 
 import os
+import sqlite3
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, status
@@ -17,13 +21,39 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import ValidationError
 
 from app.middleware import LoggingMiddleware
-from app.schemas import HealthResponse, Prediction, UsagerFeatures
+from app.schemas import HealthResponse, InferenceRecord, Prediction, UsagerFeatures
 
 # URL du service model — configurable par variable d'env (dev/staging/prod)
 MODEL_URL = os.environ.get("MODEL_URL", "http://model:8000")
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:8088").split(",")
+DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
+INFERENCE_DB = Path(os.environ.get("INFERENCE_DB", DATA_DIR / "inferences.db"))
 
-app = FastAPI(title="Emploi-Retour Backend Orchestrator", version="1.0.0")
+
+def _init_inference_db() -> None:
+    INFERENCE_DB.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(INFERENCE_DB) as con:
+        con.execute(
+            """CREATE TABLE IF NOT EXISTS inferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id TEXT NOT NULL,
+                prediction INTEGER NOT NULL,
+                probability REAL NOT NULL,
+                model_version TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )"""
+        )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _init_inference_db()
+    yield
+
+
+app = FastAPI(
+    title="Emploi-Retour Backend Orchestrator", version="1.0.0", lifespan=lifespan
+)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -58,6 +88,22 @@ async def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
+@app.get("/history", response_model=list[InferenceRecord])
+async def history(limit: int = 20) -> list[InferenceRecord]:
+    """Retourne les inférences récentes sans exposer les données du profil."""
+    if not 1 <= limit <= 100:
+        raise HTTPException(status_code=422, detail="limit doit être compris entre 1 et 100")
+
+    with sqlite3.connect(INFERENCE_DB) as con:
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            "SELECT request_id, prediction, probability, model_version, created_at "
+            "FROM inferences ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [InferenceRecord.model_validate(dict(row)) for row in rows]
+
+
 @app.post("/score", response_model=Prediction)
 async def score(usager: UsagerFeatures, request: Request) -> Prediction:
     """Appelle le service model et comptabilise ses erreurs upstream."""
@@ -87,10 +133,25 @@ async def score(usager: UsagerFeatures, request: Request) -> Prediction:
         )
 
     try:
-        return Prediction.model_validate(response.json())
+        prediction = Prediction.model_validate(response.json())
     except (ValueError, ValidationError) as exc:
         backend_upstream_errors_total.labels(kind="bad_response").inc()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Invalid response from model service",
         ) from exc
+
+    with sqlite3.connect(INFERENCE_DB) as con:
+        con.execute(
+            "INSERT INTO inferences "
+            "(request_id, prediction, probability, model_version, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (
+                prediction.request_id,
+                prediction.prediction,
+                prediction.probability,
+                prediction.model_version,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+    return prediction

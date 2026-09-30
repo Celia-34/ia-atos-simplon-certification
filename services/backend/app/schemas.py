@@ -101,6 +101,16 @@ class Prediction(BaseModel):
     request_id: str
 
 
+class InferenceRecord(BaseModel):
+    """Persisted inference metadata; input features are intentionally excluded."""
+
+    request_id: str
+    prediction: int
+    probability: float
+    model_version: str
+    created_at: str
+
+
 class HealthResponse(BaseModel):
     """Output schema for /health."""
 

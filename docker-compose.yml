@@ -35,9 +35,13 @@ services:
     build: ./services/backend
     ports:
       - "8001:8001"
+    volumes:
+      - ./data:/data
     environment:
       MODEL_URL: http://model:8000
       ALLOWED_ORIGINS: "*"
+      DATA_DIR: /data
+      INFERENCE_DB: /data/inferences.db
     depends_on:
       model:
         condition: service_healthy
