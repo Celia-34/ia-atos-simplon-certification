@@ -27,7 +27,7 @@ pour la partie technique. Elle est la contrepartie opérationnelle des condition
 | **Nature** | Donnée sensible au sens commun — **pas** une catégorie particulière de l'art. 9 RGPD (la nationalité n'y figure pas), mais un possible **proxy d'origine**, donc traitée avec la vigilance correspondante. |
 | **Base légale** | Art. 6.1.e RGPD — mission d'intérêt public (service public de l'emploi). |
 | **Finalité (C1)** | **Strictement limitée** à la priorisation vers un accompagnement renforcé. Tout usage de contrôle, de sanction, de radiation ou de refus est exclu. |
-| **Justification** | La variable **améliore** la détection du public le plus exposé : recall classe 2 de 0.800 pour les usagers hors UE contre 0.529 pour les usagers UE (§7.2). L'exclure dégraderait la détection de 6 à 16 usagers à risque sur 90, pour un gain de protection nul. |
+| **Éléments d'arbitrage (J0)** | Sur le test set, le rappel classe 2 observé était de 0.800 hors UE (16/20) contre 0.529 UE (37/70), mais ces valeurs conditionnelles ne démontrent pas que la feature cause l'écart. Une ablation dédiée sur la sous-validation (notebook §5.2.3) compare S1 à S1-sans-nationalite, identique sauf cette feature : hors UE 16/20 (0.800) contre 9/20 (0.450), UE 33/52 (0.635) contre 34/52 (0.654), avec n=20 sous le seuil de fiabilité de 30. L'erreur grave globale passe de 7/72 (9,7 %) à 10/72 (13,9 %) et le coût hypothétique de 13 580 € à 14 620 €. Cela informe un maintien provisoire, sans conclusion causale ni fiabilité suffisante pour le groupe hors UE. Diplôme, famille thématique et autres variables peuvent porter un signal redondant. |
 | **Collecte** | Saisie par le conseiller dans un `<fieldset>` dédié du formulaire, portant la mention d'information des art. 13-14 RGPD (condition **C7**). |
 | **Conservation** | Aucune persistance par ce service. La donnée ne vit que le temps de la requête HTTP (objet `UsagerFeatures` en mémoire). Sa seule trace durable est `data/prod_scored.csv`, journal du trafic scoré, dont la durée de conservation est alignée sur celle du cycle de réentraînement. |
 | **Exclusion des logs** | Voir ci-dessous. |
@@ -35,6 +35,11 @@ pour la partie technique. Elle est la contrepartie opérationnelle des condition
 | **Audit (C3, C4)** | `scripts/audit_equite.py`, hors ligne, sur le seul jeu annoté. |
 | **Droits des personnes** | Accès et rectification exercés sur le dossier usager amont, ce service n'étant pas le système de référence. |
 | **À finaliser (C6)** | AIPD (art. 35 RGPD) et inscription au registre des traitements, **avant mise en service**. |
+
+Les conditions C1 à C7 demeurent applicables. Si la nationalité est ultérieurement
+retirée des features, elle reste nécessaire à l'audit d'équité, sous réserve de
+validation juridique et de gouvernance. L'ablation n'a ni modifié le modèle servi
+ni promu un nouvel artefact.
 
 ### Exclusion des logs applicatifs
 

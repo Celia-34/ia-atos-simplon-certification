@@ -66,7 +66,7 @@
 
 ### Variables sensibles / proxy — orientations préliminaires pour la modélisation
 
-**Choix initial** : `nationalite_hors_ue` devait être exclue des features ; `age` et `niveau_diplome` comparés en scénarios avec/sans ; `code_insee_commune` écarté au profit d'une version agrégée par département. Cette précaution a été révisée par l'arbitrage J0 après mesure du bénéfice de détection.
+**Choix initial** : `nationalite_hors_ue` devait être exclue des features ; `age` et `niveau_diplome` comparés en scénarios avec/sans ; `code_insee_commune` écarté au profit d'une version agrégée par département. Le maintien de la nationalité a ensuite été décidé par J0 à titre conditionnel ; la comparaison d'ablation dédiée (§5.2.3 du notebook) ne permet pas d'attribuer causalement un gain à cette variable.
 
 **Justification** : Disparate impact confirmé empiriquement (ratio ×2,46 UE/hors UE ; écart de 32,4 points par tranche d'âge ; écart de 34,2 points par diplôme ; écarts territoriaux de 9,7 % à 39 %). Ces écarts ont déclenché l'audit et les garde-fous J0, pas une conclusion automatique de discrimination du modèle.
 
@@ -133,11 +133,11 @@
 
 **Justification** : Éviter la fuite de données ("le train/test split DOIT précéder tout calcul d'imputation/normalisation, sinon fuite de données").
 
-### Exclusion de `nationalite_hors_ue` des features
+### Orientation initiale sur `nationalite_hors_ue` (révisée par J0)
 
-**Choix** : Variable exclue de toutes les features de tous les scénarios, conservée uniquement pour l'audit d'équité.
+**Choix initial** : Variable envisagée hors des features et conservée pour l'audit d'équité. Cette orientation a ensuite été révisée : voir l'arbitrage J0 ci-dessous, qui maintient provisoirement la variable dans S1 après une ablation dédiée.
 
-**Justification** : Son signal est associé à un risque de discrimination directe et de proxy d'origine ; la nationalité n'est toutefois pas une catégorie particulière de l'art. 9 RGPD, et la base légale documentée est l'art. 6.1.e.
+**Justification initiale** : Son usage comme feature présente un risque de discrimination directe et de proxy d'origine ; la nationalité n'est toutefois pas une catégorie particulière de l'art. 9 RGPD, et la base légale documentée est l'art. 6.1.e.
 
 ### Traitement de `code_insee_commune`
 
@@ -283,26 +283,21 @@ avant tout déploiement ; aucune validation n'est présumée par le code.
 
 ## Étape 5 — Arbitrer
 
-### Arbitrage J0 — maintien de `nationalite_hors_ue`
+### Arbitrage J0 — maintien conditionnel de `nationalite_hors_ue`
 
-**Décision** : conserver `nationalite_hors_ue` comme feature du scénario S1 et
-comme axe obligatoire de l'audit d'équité. La mesure ex post montre un recall de
-classe 2 supérieur hors UE (0,800 contre 0,529 UE dans l'analyse de référence) :
-la variable sert à mieux orienter vers un accompagnement renforcé, jamais à
-contrôler, sanctionner, radier ou refuser un accompagnement.
+**Comparaison dédiée (sous-validation, 400 lignes, 72 cas réels de classe 2)** : S1 et S1-sans-nationalite ont été entraînés sur les mêmes 1 600 lignes de sous-train, puis évalués sur les mêmes lignes de sous-validation. Le seul changement de features est le retrait de `nationalite_hors_ue` ; les deux pipelines utilisent le même prétraitement sans fuite et `RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42)`. S2 n'est pas utilisé pour cette comparaison.
 
-**Conditions C1 à C7** : finalité limitée à l'accompagnement renforcé ; aucune
-exposition dans Prometheus, Grafana ou les logs ; audit récurrent avec marquage
-des effectifs sous 30 ; retrait de la variable si le recall hors UE devient
-inférieur au recall UE, après vérification des effectifs et arbitrage prévu par
-la clause C4 ; maintien de la revue humaine §5.2.3 ; AIPD art. 35 et inscription
-au registre avant mise en service ; information art. 13-14. Le retrait est une
-condition de gouvernance, mais il n'est pas automatisé par le prototype :
-`scripts/audit_equite.py` signale le cas (code de sortie 2), sans modifier le
-modèle ni les features servis.
+| Variante | Recall classe 2 UE (n) | Recall classe 2 hors UE (n) | Écart absolu | Erreurs graves 2→0 globales | Coût métier total |
+|---|---:|---:|---:|---:|---:|
+| S1 | 0,635 (33/52) | 0,800 (16/20, effectif insuffisant) | 0,165 | 7/72 (9,7 %) | 13 580 € |
+| S1-sans-nationalite | 0,654 (34/52) | 0,450 (9/20, effectif insuffisant) | 0,204 | 10/72 (13,9 %) | 14 620 € |
+| Différence (sans - S1) | +0,019 | −0,350 | +0,038 | +3 cas (+4,2 points) | +1 040 € |
 
-La décision est réversible et ne vaut pas autorisation de mise en production :
-le filet de sécurité ne rattrape encore qu'une partie des erreurs graves 2→0.
+Coût calculé avec la même matrice hypothétique de §5.2.1, A=0,40, B=0,10 et 20 € par revue (§5.2.3), en supposant les dossiers revus corrigés sans erreur. Les coûts sont des comparateurs illustratifs, non validés par le métier. Les 20 cas hors UE sont sous le seuil de fiabilité de 30 dans les deux variantes. La hausse apparente de l'écart de rappel sans la variable et la dégradation des erreurs graves/coût sont des signaux à investiguer, pas des preuves d'un bénéfice propre de la nationalité : diplôme, famille thématique et autres variables peuvent porter un signal redondant, et un seul sous-split donne une estimation instable.
+
+**Décision révisée** : conserver provisoirement `nationalite_hors_ue` dans S1 et dans le modèle actuellement servi, et la maintenir comme axe d'audit même si elle était retirée des features. Cette décision tient compte des indicateurs prioritaires (erreurs graves et coût) ainsi que du rappel par groupe, mais ne repose pas sur le seul rappel global ni sur une attribution causale. Réévaluer sur des volumes suffisants et des partitions distinctes avant toute conclusion durable. Aucun nouvel artefact n'est promu par cette analyse ; le contrat d'entrée du service demeure inchangé.
+
+**Conditions C1 à C7 maintenues** : C1 finalité limitée à la priorisation vers l'accompagnement renforcé ; C2 aucune exposition dans Prometheus, Grafana ou les logs ; C3 audit récurrent avec marquage des effectifs sous 30 ; C4 si le rappel hors UE devient inférieur au rappel UE sur des effectifs fiables, déclencher une revue de gouvernance et une décision contrôlée de retrait/suspension (le script signale le cas, sans modifier le modèle) ; C5 maintien de la revue humaine §5.2.3 ; C6 AIPD art. 35 et inscription au registre avant mise en service ; C7 information art. 13-14. La décision reste réversible et ne vaut pas autorisation de mise en production : le filet ne rattrape qu'une partie des erreurs graves 2→0.
 
 ### Correction du scénario S1 (bug découvert et corrigé)
 

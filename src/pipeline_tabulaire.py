@@ -36,7 +36,17 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 	# d'entretien sous sa forme catégorielle (famille_thematique).
 	"s1": (
 		"nationalite_hors_ue",
-        "age",
+		"age",
+		"anciennete_poste_ans",
+		"niveau_diplome",
+		"code_rome_vise",
+		"est_allocataire",
+		"departement",
+		FAMILLE_FEATURE,
+	),
+	# Ablation dédiée à J0 : seule la nationalité est retirée de S1.
+	"s1-sans-nationalite": (
+		"age",
 		"anciennete_poste_ans",
 		"niveau_diplome",
 		"code_rome_vise",
@@ -49,7 +59,7 @@ SCENARIO_FEATURES: Mapping[str, tuple[str, ...]] = {
 	# Anciennement appelé (à tort) "s1" avant correction : cf. décision consignée en §5.6/§6.
 	"s4-all": (
 		"nationalite_hors_ue",
-        "age",
+		"age",
 		"anciennete_poste_ans",
 		"niveau_diplome",
 		"code_rome_vise",
@@ -127,8 +137,8 @@ def build_tabular_preprocessor(scenario: str) -> ColumnTransformer:
 	"""Build the leakage-safe scikit-learn preprocessor for one scenario.
 
 	Call ``fit`` only on training data, then use ``transform`` on validation or
-	test data. ``nationalite_hors_ue`` and the raw municipality code are never
-	selected by this module.
+	test data. The raw municipality code is never selected; nationality is used
+	only in scenarios that explicitly include it.
 	"""
 	features = get_scenario_features(scenario)
 	numeric_features = [feature for feature in features if feature in NUMERIC_FEATURES]
