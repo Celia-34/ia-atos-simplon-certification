@@ -243,7 +243,7 @@
 
 **Choix** : Scénario **S1** (tabulaire complet + `famille_thematique`) avec `RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42)`.
 
-**Justification** : Sur le test set (§5.6.2, utilisé une seule fois), cette configuration obtient une accuracy de **0,714**, un F1 macro de **0,690**, un recall classe 2 de **0,589**, un F1 classe 2 de **0,570**, un taux d'erreur grave 2→0 de **10,0 %** et un taux d'erreur 0→2 de **4,8 %**. Matrice de confusion : `[[142, 36, 9], [27, 162, 34], [9, 28, 53]]` — sur les 90 usagers réellement en classe 2, 53 sont détectés et 9 sont classés à tort en classe 0. Le taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, n'est jugé acceptable qu'à la condition d'une **revue par un conseiller humain** sur 20% des dossiers à risques.
+**Justification** : Sur le test set (§5.6.2, utilisé une seule fois), cette configuration obtient une accuracy de **0,714**, un F1 macro de **0,690**, un recall classe 2 de **0,589**, un F1 classe 2 de **0,570**, un taux d'erreur grave 2→0 de **10,0 %** et un taux d'erreur 0→2 de **4,8 %**. Matrice de confusion : `[[142, 36, 9], [27, 162, 34], [9, 28, 53]]` — sur les 90 usagers réellement en classe 2, 53 sont détectés et 9 sont classés à tort en classe 0. Le taux d'erreur grave, supérieur au seuil de 5 % visé par `criteria.md`, n'est jugé acceptable qu'à la condition d'une **revue par un conseiller humain** selon les règles A/B. Au réglage servi A = 0,40, B = 0,20, le test indique 25,6 % de dossiers à revoir ; le candidat B = 0,10 et ses réserves sont documentés dans la mise à jour du §5.2.3 ci-dessous.
 
 ### Courbes d'apprentissage / early stopping
 
@@ -253,9 +253,9 @@
 
 ### Persistance du modèle final
 
-**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s1_RandomForestClassifier__n_estimators_300_.joblib` (34,4 Mo), accompagné d'un `.metadata.json` versionnant les librairies, le commit git, les features d'entrée, les seuils de validation manuelle et les métriques de test.
+**Choix** : Pipeline complet (préprocesseur + modèle) sauvegardé via joblib dans `models/modele_final_s1_RandomForestClassifier__n_estimators_300__class_weight_balanced_.joblib` (34,4 Mo), accompagné d'un `.metadata.json` versionnant les librairies, le commit git, les features d'entrée, les seuils de validation manuelle et les métriques de test.
 
-**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation) et pour la traçabilité exigée d'un système à haut risque. Le modèle servi (`services/model/models/emploi_retour_s1.joblib`, v2.0.0) est exporté depuis cet artefact par `scripts/export_model_prod.py`.
+**Justification** : Pour un usage ultérieur (API de service en phase d'industrialisation) et pour la traçabilité exigée d'un système à haut risque. Le modèle servi (`services/model/models/emploi_retour_s1.joblib`, v3.0.0) est exporté depuis cet artefact par `scripts/export_model_prod.py`.
 
 ### Condition C6 — AIPD et registre des traitements
 
@@ -293,9 +293,13 @@ contrôler, sanctionner, radier ou refuser un accompagnement.
 
 **Conditions C1 à C7** : finalité limitée à l'accompagnement renforcé ; aucune
 exposition dans Prometheus, Grafana ou les logs ; audit récurrent avec marquage
-des effectifs sous 30 ; retrait automatique si le recall hors UE devient
-inférieur au recall UE ; maintien de la revue humaine §5.2.3 ; AIPD art. 35 et
-inscription au registre avant mise en service ; information art. 13-14.
+des effectifs sous 30 ; retrait de la variable si le recall hors UE devient
+inférieur au recall UE, après vérification des effectifs et arbitrage prévu par
+la clause C4 ; maintien de la revue humaine §5.2.3 ; AIPD art. 35 et inscription
+au registre avant mise en service ; information art. 13-14. Le retrait est une
+condition de gouvernance, mais il n'est pas automatisé par le prototype :
+`scripts/audit_equite.py` signale le cas (code de sortie 2), sans modifier le
+modèle ni les features servis.
 
 La décision est réversible et ne vaut pas autorisation de mise en production :
 le filet de sécurité ne rattrape encore qu'une partie des erreurs graves 2→0.
@@ -348,15 +352,19 @@ le filet de sécurité ne rattrape encore qu'une partie des erreurs graves 2→0
 
 ### Fallback / arbitrage humain systématique
 
-**Choix** : Le modèle ne s'abstient jamais et ne décide jamais seul. Deux règles de validation manuelle sont définies en §5.2.3 et persistées dans les métadonnées du modèle :
+**Décision initiale, toujours en vigueur dans les artefacts servis** : Le modèle ne s'abstient jamais et ne décide jamais seul. Deux règles de validation manuelle sont définies en §5.2.3 et persistées dans les métadonnées du modèle :
 - **Règle A** — si P(classe 2) ≥ **0,40**, le dossier part en validation manuelle quelle que soit la classe prédite (priorité normale, 5 jours ouvrés) ;
 - **Règle B** — si la classe 0 est prédite **et** P(classe 2) ≥ **0,20**, le dossier part également en validation manuelle (risque résiduel d'erreur grave, **priorité haute sous 48 h ouvrées**).
 
 L'API retourne toujours HTTP 200 avec la classe prédite, les 3 probabilités et un champ `decision` ∈ {`a_valider`, `auto`}.
 
-**Justification** : Le taux d'erreur grave du modèle retenu (10,0 % sur le test set) est supérieur au seuil de 5 % visé par `criteria.md`. Ce niveau de risque n'est acceptable que si aucune décision n'est prise automatiquement : c'est la condition de déploiement, pas une option de conception (art. 22 RGPD, acté dès l'étape 1). **Mesure du filet sur le test set (§7.2)** : 128 dossiers signalés sur 500 (**25,6 %**, dont 29 par la seule règle B), pour un coût de revue de **2 560 €** à 20 €/dossier, soit environ 5 € par dossier traité. Sur les 9 erreurs graves du test set, **4 sont rattrapées par le filet (44 %) et 5 ne le sont pas** — ce chiffre est le constat le plus inconfortable du dossier et doit être présenté comme tel.
+**Justification** : Le taux d'erreur grave du modèle retenu (10,0 % sur le test set) est supérieur au seuil de 5 % visé par `criteria.md`. Ce niveau de risque n'est acceptable que si aucune décision n'est prise automatiquement : c'est la condition de déploiement, pas une option de conception (art. 22 RGPD, acté dès l'étape 1). Au réglage A = 0,40, B = 0,20, les artefacts enregistrent 128 dossiers signalés sur 500 (**25,6 %**), dont 29 par la seule règle B, pour un coût de revue de **2 560 €** à 20 €/dossier. Sur les 9 erreurs graves du test set, **4 sont rattrapées par le filet (44 %) et 5 ne le sont pas**.
 
-**Réserves assumées** : (1) le seuil A retenu (0,40) **n'est pas le minimiseur du coût métier** — le balayage §5.2.3 place l'optimum à 0,10, pour un coût de 9 370 € contre 14 450 € à 0,40 ; le choix de 0,40 privilégie une charge de revue soutenable (25,6 % des dossiers au lieu de 63,5 %) et reste un arbitrage à faire trancher par le métier. (2) Le taux d'abstention mesuré (25,6 %) **dépasse la cible de `criteria.md`** (≤ 15 %). (3) La matrice de coût est fictive. (4) Le calcul suppose que les dossiers revus sont corrigés sans erreur, hypothèse à revalider en production (§9.2).
+**Mise à jour du 29/09/2026 — balayage du seuil B** : A est maintenu à **0,40** pour comparer les seuils B sur la sous-validation, avant lecture du test. Parmi les valeurs testées (0,10 ; 0,15 ; 0,20 ; 0,30), le notebook retient **B = 0,10** comme meilleur candidat de rattrapage : **6/8 erreurs graves signalées (75,0 %)** et **28,2 %** des dossiers orientés en revue sur la sous-validation. Aucun seuil B testé n'atteint l'hypothèse de capacité minimale de revue de **30 %** sur ces données. L'évaluation descriptive a posteriori sur le test donne, pour B = 0,10, **6/9 erreurs graves (66,7 %)** et **30,8 %** de dossiers revus ; elle ne sert pas à sélectionner le seuil.
+
+**Statut de la décision** : B = 0,10 est un **candidat exploratoire du notebook**, pas le seuil opérationnel actuellement servi. Les métadonnées du modèle final et celles du modèle API v3.0.0 portent toujours A = 0,40 et B = 0,20. Aucun artefact de production n'est mis à jour automatiquement par le sweep. Le choix métier de capacité reste à valider ; une éventuelle adoption de B = 0,10 exige une persistance, un export et une promotion contrôlés, puis une réévaluation sur des données distinctes. La réserve bloquante demeure : le candidat laisse encore 2 erreurs graves sur 8 sans revue en sous-validation, et le réglage servi en laisse 5 sur 9 sur le test.
+
+**Autres réserves assumées** : (1) le seuil A retenu (0,40) **n'est pas le minimiseur du coût métier** selon le balayage initial — ce choix privilégie une charge de revue soutenable et reste à faire trancher par le métier. (2) La part revue au réglage servi (25,6 %) **dépasse la cible de `criteria.md`** (≤ 15 %). (3) La matrice de coût est fictive. (4) Le calcul suppose que les dossiers revus sont corrigés sans erreur, hypothèse à revalider en exploitation.
 
 ### Analyse des erreurs critiques et audit d'équité
 
@@ -378,16 +386,48 @@ L'API retourne toujours HTTP 200 avec la classe prédite, les 3 probabilités et
 
 ---
 
+## Étape 6 — Industrialiser et améliorer en continu
+
+### Industrialisation, CI et reproductibilité
+
+**Décision** : Le pipeline est industrialisé avec des services conteneurisés, Docker Compose, une CI GitHub Actions, des contrôles de qualité et de non-régression, ainsi qu'un suivi MLflow. Les tests et le golden run vérifient que le modèle servi correspond à la configuration, aux features et aux métriques attendues. Le notebook reste la source de l'analyse et les scripts/modules séparés portent l'exécution réutilisable.
+
+**Justification** : Les commits d'industrialisation des 23 et 27 septembre ont ajouté les contrôles, l'architecture et les flux documentés. Le modèle servi ne doit pas diverger silencieusement de celui évalué ; les assertions sur des métriques sensibles aux variations de machine utilisent une tolérance adaptée plutôt qu'une égalité trop stricte. La capture d'une exécution GitHub Actions réussie documente le passage de la CI, sans constituer une décision métier.
+
+### Boucle de feedback conseiller
+
+**Décision** : Le prototype permet à un conseiller d'associer une classe réellement observée à un `request_id` via `POST /feedback`. Les retours sont enregistrés dans SQLite ; un rejeu identique est idempotent, un label contradictoire requiert un arbitrage humain. Les annotations peuvent être jointes aux features pour audit et entraînement candidat. Les données d'exemple restent simulées et ne sont pas des retours réels de conseillers.
+
+**Limites** : Le raccordement durable des prédictions en ligne à `data/prod_scored.csv` et le canal opérationnel de saisie conseiller restent à réaliser. Le `request_id` prévu par l'architecture ne signifie donc pas que toute la chaîne de production est déjà persistée. L'accès et la durée de conservation des scores et feedbacks contenant potentiellement des données personnelles doivent être encadrés.
+
+### Réentraînement et promotion contrôlée
+
+**Décision** : La cadence retenue est une vérification hebdomadaire **manuelle** du volume d'annotations. À partir de 100 feedbacks non consommés, l'opérateur peut lancer `python scripts/retrain.py --min-feedback 100`. Le candidat est évalué sur le même jeu de référence figé que le modèle de production ; la promotion exige le respect des planchers de qualité, l'absence de régression critique supérieure à 0,01 et un gain d'au moins 0,01 sur une métrique suivie. Les décisions d'acceptation ou de rejet sont tracées dans `decisions_log.jsonl` et, si disponible, dans MLflow.
+
+**Justification et limites** : Aucun apprentissage en ligne, ordonnanceur, déploiement ou promotion automatique n'est retenu. Un candidat accepté produit un artefact distinct ; sa mise en service demeure une étape séparée, contrôlée et humaine. Un candidat rejeté ne remplace pas le modèle servi et les feedbacks restent disponibles.
+
+### Supervision en exploitation
+
+**Décision** : Prometheus et Grafana fournissent une supervision visuelle de la disponibilité, des erreurs HTTP, de la latence, du débit, des classes prédites, de la confiance renvoyée et de la distribution des familles thématiques. Cette distribution d'entrée sert de signal à investiguer, pas de preuve de dérive ni de baisse de performance. L'audit de qualité et d'équité est rejoué hors ligne lorsque des labels sont disponibles.
+
+**Limites** : Il n'y a pas de règles Prometheus ni d'Alertmanager ; le seuil visuel de latence Grafana n'envoie pas de notification. Le service ne calcule pas de score OOD, de PSI, de Brier score ou de courbe de calibration. Sans vérité terrain récente, les métriques prédictives ne sont pas mesurables. La revue humaine du §7.2 reste nécessaire et aucun signal de monitoring ne transforme une prédiction en décision automatique.
+
+### Conditions restantes avant toute mise en service
+
+La mise en service reste bloquée par l'arbitrage métier sur la capacité de revue et le seuil B, par le filet qui ne rattrape pas toutes les erreurs graves, et par l'audit d'équité dont les écarts observés sur le test ont des effectifs insuffisants pour conclure. Restent aussi les conditions juridiques de J0/C6 (AIPD et registre validés par le DPO et la direction métier), l'alerting, l'ordonnancement réel de la revue hebdomadaire, la journalisation durable des prédictions, le canal conseiller et les règles d'accès/conservation des données. La stack de démonstration, les feedbacks simulés et la CI verte ne valent pas autorisation de déploiement.
+
+---
+
 ## Synthèse d'arbitrage — les trois points qu'un jury relèvera
 
 1. **Le signal textuel est artificiellement propre.** `synthese_entretien` se réduit à 9 templates dont l'association à la classe cible est très forte (pureté de 44,6 % à 78,4 %, qualifiée de « quasi déterministe » en §3.7). Ce n'est **pas une fuite de cible au sens strict** — aucun template ne mentionne le délai ni une décision déjà prise (§3.3.2.1) — mais le jeu de données étant synthétique, ces templates ont vraisemblablement été générés à partir de la classe. **Conséquence assumée : les performances de S1 sont une borne haute optimiste et ne se transposeraient pas telles quelles à des verbatims réels.**.
-2. **Les cibles de `criteria.md` ne sont pas atteintes.** Recall classe 2 : 0,589 contre 0,80 visé. Taux d'erreur grave : 10,0 % contre 5 % visé. Taux d'abstention : 25,6 % contre 15 % visé. Écart d'équité : 27 à 44 points contre 10 points visés. Ces écarts sont documentés et non contournés ; c'est le filet humain qui rend le dispositif défendable, pas la performance brute.
-3. **Le retrait du NLP n'a rien coûté et a beaucoup simplifié.** Métriques en légère hausse (+0,004 de F1 macro en moyenne, +0,027 sur la configuration retenue), −2,5 Go de dépendances, un seul chemin de préprocessing, un mapping auditable de 9 lignes, et une minimisation RGPD renforcée (plus de verbatim en aval, plus de modèle de langue en production). La décision est défendable sur les trois axes : performance, industrialisation et conformité.
+2. **Les cibles de `criteria.md` ne sont pas atteintes.** Recall classe 2 : 0,589 contre 0,80 visé. Taux d'erreur grave : 10,0 % contre 5 % visé. Part revue du réglage servi : 25,6 % contre 15 % maximum visé. B = 0,10 est un candidat qui améliore le rattrapage en sous-validation mais ne satisfait pas l'hypothèse de capacité minimale de 30 % ; l'écart d'équité observé reste à confirmer sur des effectifs suffisants. Ces limites ne valent pas feu vert de mise en production.
+3. **Le retrait du NLP a simplifié le dispositif ; l'industrialisation reste un prototype à finaliser.** Un mapping auditable de 9 lignes remplace l'inférence NLP en production et renforce la minimisation. CI, suivi, feedback et promotion contrôlée sont présents, mais l'alerting, la persistance réelle des scores, le canal conseiller et l'ordonnancement ne sont pas tous opérationnels. La conformité et l'autorisation de mise en service ne sont pas présumées par le code.
 
 ---
 
 ## Note méthodologique
 
-Le fichier `decisions.md` (squelette initial du projet) prévoyait des sections "Gestion des doublons", "Gestion des manquants", "Gestion des valeurs erratiques" et "Préparation" restées vides ; il a été remplacé par le présent document, qui consolide ces décisions à partir du notebook (`notebooks/certification-cas-usage.ipynb`, §1 à §7), de `criteria.md`, `scenarii.md`, `baseline.md`, `benchmark.md`, `comparaison_finalistes.md` et `evaluation_finale.md` — ces quatre derniers étant **générés automatiquement par le notebook** et faisant foi pour les chiffres. `decisions_log.jsonl` trace les décisions au fil de l'eau.
+Le fichier `decisions.md` (squelette initial du projet) prévoyait des sections "Gestion des doublons", "Gestion des manquants", "Gestion des valeurs erratiques" et "Préparation" restées vides ; il a été remplacé par le présent document, qui consolide les décisions à partir du notebook (`notebooks/certification-cas-usage.ipynb`, §1 à §9), de `criteria.md`, `scenarii.md`, des résultats générés par le notebook et des artefacts effectivement servis. Lorsqu'un seuil du notebook diffère des métadonnées ou du modèle API, ce document distingue explicitement le candidat exploratoire du réglage opérationnel. `decisions_log.jsonl` trace les décisions de promotion au fil de l'eau.
 
 Les mentions de « zero-shot », « CamemBERT » et « TF-IDF » subsistant dans ce document, dans le notebook et dans `src/pipeline_texte.py` sont des **références historiques assumées** : elles documentent la méthode ayant produit `data/referentiel_familles.csv` et la comparaison avant/après qui justifie son retrait. Aucune de ces techniques n'est active dans le code, le modèle servi ou les dépendances du projet.
