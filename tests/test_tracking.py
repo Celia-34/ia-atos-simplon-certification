@@ -146,6 +146,58 @@ def test_les_metriques_de_production_sont_prefixees(monkeypatch):
     assert "rejetee" in captures["nom"]
 
 
+def test_log_run_enregistre_le_modele_dans_le_registry(monkeypatch):
+    appels: dict = {}
+
+    class RunActif:
+        info = type("Info", (), {"run_id": "run-id"})()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    class SckitLearn:
+        def log_model(self, **kwargs):
+            appels["modele"] = kwargs
+
+    class MlflowMock:
+        sklearn = SckitLearn()
+
+        def set_experiment(self, nom):
+            appels["experiment"] = nom
+
+        def start_run(self, run_name):
+            appels["run_name"] = run_name
+            return RunActif()
+
+        def log_params(self, params):
+            appels["params"] = params
+
+        def log_metrics(self, metrics):
+            appels["metrics"] = metrics
+
+    monkeypatch.setenv(tracking.VARIABLE_URI, "http://localhost:5000")
+    monkeypatch.setattr(tracking, "_mlflow", lambda: MlflowMock())
+    modele = object()
+
+    run_id = tracking.log_run(
+        "entrainement-s1",
+        {"scenario": "s1", "metriques_test": {"accuracy": 0.72}},
+        modele=modele,
+        nom_modele_registre="emploi_retour_s1",
+    )
+
+    assert run_id == "run-id"
+    assert appels["modele"] == {
+        "sk_model": modele,
+        "artifact_path": "model",
+        "registered_model_name": "emploi_retour_s1",
+    }
+    assert appels["metrics"] == {"accuracy": 0.72}
+
+
 def test_un_rejet_de_promotion_est_trace_comme_une_acceptation(monkeypatch):
     """Ne tracer que les promotions reviendrait à ne garder que les runs qui
     arrangent — or un rejet est l'issue la plus instructive de la boucle."""

@@ -100,6 +100,8 @@ def save_metadata(chemin_modele, metadata: dict) -> Path:
         metadata=charge_utile,
         artefacts=[chemin_metadata],
         tags={"etape": "entrainement", "source": "notebook"},
+        modele=joblib.load(chemin_modele),
+        nom_modele_registre="emploi_retour_s1",
     )
     return chemin_metadata
 

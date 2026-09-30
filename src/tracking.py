@@ -155,6 +155,8 @@ def log_run(
     artefacts: list[Path] | None = None,
     tags: dict[str, str] | None = None,
     experiment: str = EXPERIMENT_DEFAUT,
+    modele: Any | None = None,
+    nom_modele_registre: str | None = None,
 ) -> str | None:
     """Enregistre un run complet à partir d'un dictionnaire de métadonnées.
 
@@ -182,6 +184,12 @@ def log_run(
                 chemin = Path(artefact)
                 if chemin.exists():
                     mlflow.log_artifact(str(chemin))
+            if modele is not None:
+                mlflow.sklearn.log_model(
+                    sk_model=modele,
+                    artifact_path="model",
+                    registered_model_name=nom_modele_registre,
+                )
             return run_actif.info.run_id
     except Exception as erreur:  # noqa: BLE001
         _avertir_une_fois(f"échec de journalisation ({erreur})")
