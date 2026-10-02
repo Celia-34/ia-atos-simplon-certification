@@ -1,5 +1,5 @@
 {
-  "date_persistance": "2026-09-30T18:44:51",
+  "date_persistance": "2026-10-02T13:41:10",
   "chemin_modele": "modele_final_s1_RandomForestClassifier__n_estimators_300__class_weight_balanced_.joblib",
   "taille_mo": 34.357,
   "versions": {
@@ -35,7 +35,7 @@
     "n_train": 2000,
     "n_test": 500
   },
-  "git_commit": "c9796de",
+  "git_commit": "ec48a17",
   "regles_validation_manuelle": {
     "seuil_a": 0.4,
     "seuil_b": 0.15,
