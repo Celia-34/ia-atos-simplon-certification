@@ -28,14 +28,14 @@ Les seuils révisés devront être confirmés après validation croisée sur le 
 
 #### Confrontation aux résultats obtenus (modèle retenu : S1 + `RandomForestClassifier(n_estimators=300, class_weight="balanced")`)
 
-Bilan honnête à l'issue de l'étape 5. Les chiffres proviennent de `evaluation_finale.md` (test set, §5.6.2) et de l'audit §7.2 ; ils ne sont pas recopiés à la main mais repris des fichiers générés par le notebook.
+Bilan honnête à l'issue de l'étape 5. Les métriques brutes proviennent de `evaluation_finale.md` (test set, §5.6.2) ; les résultats du filet B = 0,15 sont les calculs du notebook en sous-validation et sur le test descriptif (§7.2). Le test descriptif ne sert pas à la sélection.
 
 | Critère | Cible révisée | Mesuré | Verdict |
 |---|---|---|---|
 | Recall classe 2 | ≥ 0.80 | **0.589** | ❌ Non atteint. Le meilleur recall du benchmark (0.754, `RandomForestClassifier(min_samples_leaf=5)`) n'a pas été retenu car il dégrade le taux d'erreur grave à 13,5 %. |
-| Taux d'erreur grave 2→0 | < 5 % | **10,0 %** (9 cas sur 90 classes 2) | ❌ Non atteint. Compensé — partiellement — par le filet de validation manuelle : 4 des 9 erreurs graves sont rattrapées. |
+| Taux d'erreur grave 2→0 | < 5 % | **Modèle brut, test : 10,0 %** (9/90). Avec le filet B = 0,15 : sous-validation, 5/7 erreurs graves rattrapées, taux résiduel après revue **2/72 = 2,8 %** ; test descriptif, 5/9 rattrapées, taux résiduel après revue **4/90 = 4,4 %**. | ❌ Modèle brut non atteint. Le filet recommandé réduit le taux résiduel sous 5 % dans ces évaluations, mais le résultat test est descriptif et ne sert pas à la sélection. B = 0,15 est recommandé, sous réserve d'arbitrage métier ; l'artefact réellement servi reste à B = 0,20. |
 | F1-score classe 2 | ≥ 0.60 | **0.570** | ❌ Juste sous la cible. |
-| Taux d'abstention (fallback §7.2) | ≤ 15 % | **25,6 %** (128 dossiers sur 500) | ❌ Dépassé. Métrique désormais mesurable grâce aux règles de décision §5.2.3 (seuil A = 0.40, seuil B = 0.20) ; le seuil A est l'arbitrage direct entre cette charge et le coût des erreurs — à faire trancher par le métier. |
+| Taux d'abstention (fallback §7.2) | ≤ 15 % | **Avec le seuil B recommandé = 0,15 : 33,0 % en sous-validation et 28,4 % sur le test descriptif.** | ❌ Dépasse le plafond opérationnel de revue ≤ 15 % dans les deux évaluations. Le seuil B = 0,15 est recommandé pour réduire les erreurs graves, mais son adoption doit être arbitrée par le métier ; l'artefact réellement servi reste à B = 0,20. Le test est descriptif et ne sert pas à la sélection. Le seuil A = 0,40 demeure également un paramètre des règles §5.2.3. |
 | Accuracy globale | ≥ 70 % | **71,4 %** | ✅ Atteint. |
 | Taux d'erreur global | ≤ 30 % | **28,6 %** | ✅ Atteint. |
 | F1-score macro | ≥ 0.65 | **0.690** | ✅ Atteint. |
