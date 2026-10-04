@@ -63,3 +63,21 @@ Légende : 🟢 meilleure valeur de la colonne · 🔴 pire valeur de la colonne
 | Modèle | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
 |---|---|---|---|---|---|---|
 | `RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) | 🟢 0.432 | 🟢 0.425 | 🟢 0.431 | 🟢 0.383 | 🟢 22.2 % | 🟢 13.3 % |
+
+
+
+
+-----------
+
+`RandomForestClassifier` de référence pour la baseline (§4.2, pas encore le modèle retenu — cf. §5) 
+
+| Scenario | Accuracy globale | F1-score macro | Recall classe 2 | F1-score classe 2 (minoritaire) | Matr. confusion : Taux erreur grave (2→0) | Matr. confusion : Taux erreur (0→2) |
+|---|---|---|---|---|---|---|
+| `S1-all` | ⭐🟢 0.715 | ⭐🟢 0.702 | ⭐🟢 0.653 | ⭐🟢 0.639 | 🟢 9.7 % | ⭐🟢 4.7 % |
+| `S2` | 🟢 0.6 | 🟢 0.583 | 🟢 0.569 | 🟢 0.497 | 🟢 23.6 % | 🟢 16.7 % |
+| `S3`  | 🟢 0.63 | 🟢 0.615 | 🟢 0.639 | 🟢 0.526 | 🟢 23.6 % | 🟢 18.7 % |
+| `S4a baseline (s4-age-dip-anc-dep)` | 🟢 0.555 | 🟢 0.548 | 🟢 0.5 | 🟢 0.514 | 🟢 16.7 % | 🟢 7.3 % |
+| `S4b - Sans age (s4-dip-anc-dep)`  | 🟢 0.432 | 🟢 0.425 | 🟢 0.431 | 🟢 0.383 | 🟢 22.2 % | 🟢 13.3 % |
+| `S4c - Sans diplome (s4-age-anc-dep)` d | 🟢 0.432 | 🟢 0.416 | 🟢 0.361 | 🟢 0.34 | 🟢 29.2 % | 🟢 12.7 % |
+| `S4d - Sans departement (s4-age-dip-anc)`| 🟢 0.498 | 🟢 0.481 | 🟢 0.431 | 🟢 0.395 | 🟢 18.1 % | 🟢 10.0 % |
+| `S4e - Sans proxies majeures (s4-anc)`  | 🟢 0.412 | 🟢 0.399 | 🟢 0.403 | 🟢 0.326 | 🟢 26.4 % | 🟢 25.3 % |
